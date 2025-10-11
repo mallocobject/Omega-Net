@@ -148,10 +148,14 @@ class SixLevelWaveletTransform:
 class ExponentialFitterWithAbruptDetection:
     """带突变点检测的指数拟合器"""
 
-    def __init__(self):
+    def __init__(self, base_line: str = "non_linear"):
         self.abrupt_indices = None
         self.fitted_parameters = None
         self.fitted_curve = None
+        if base_line == "linear" or base_line == "non_linear":
+            self.base_line = base_line
+        else:
+            raise ValueError("base_line 参数必须是 'linear' 或 'non-linear'")
 
     @staticmethod
     def exponential_func(x: np.ndarray, a: float, b: float, c: float) -> np.ndarray:
@@ -159,31 +163,34 @@ class ExponentialFitterWithAbruptDetection:
         return a * np.exp(-b * x) + c
 
     def detect_abrupt_changes(
-        self, x: np.ndarray, threshold_factor: float = 0.2
+        self,
+        x: np.ndarray,
+        threshold_factor: float = 0.2,
     ) -> np.ndarray:
         # 创建线性参考线
         x_points = [0, len(x) - 1]
         y_points = [x[0], x[-1]]
-        y_numpy = np.interp(np.arange(len(x)), x_points, y_points)
+        if self.base_line == "linear":
+            y_numpy = np.interp(np.arange(len(x)), x_points, y_points)
+            # 计算与线性参考的偏差
+            x_datum = x - y_numpy
+            p = np.ones_like(x_datum) * (x_datum[0] ** 2)
+            for i in range(1, len(x_datum)):
+                p[i] = p[i - 1] + threshold_factor * (x_datum[i] ** 2 - p[i - 1])
 
-        # 计算与线性参考的偏差
-        x_datum = x - y_numpy
+        elif self.base_line == "non_linear":  # 非线性参考线
+            # k[n] = (ln x[n] - ln x[n-1]) / (n - (n-1)) = ln(x[n]/x[n-1])
+            k = np.zeros(len(x) - 1, dtype=x.dtype)
+            for i in range(1, len(x)):
+                k[i - 1] = np.log(x[i] / x[i - 1])  # x[n] > 0
 
-        # 计算平均能量
-        P = np.mean(np.abs(x_datum) ** 2)
-
-        # 检测突变点
-        p = 0
-        abrupt_index = np.zeros_like(x_datum, dtype=bool)
-
-        for i in range(len(x_datum)):
-            if i == 0:
-                p = x_datum[0] ** 2
-            else:
-                p = p + threshold_factor * (x_datum[i] ** 2 - p)
-
-            if p > P:
-                abrupt_index[i] = True
+        if self.base_line == "linear":
+            # 计算平均能量
+            P = np.mean(np.abs(x_datum) ** 2)
+            abrupt_index = p > P
+        else:
+            P = 0.1 * np.mean(np.abs(k))
+            abrupt_index = k > P
 
         return abrupt_index
 
@@ -235,9 +242,14 @@ class ExponentialFitterWithAbruptDetection:
 
 
 class WEF:
-    def __init__(self, wavelet: str = "db4", mode: str = "symmetric"):
+    def __init__(
+        self,
+        wavelet: str = "db4",
+        mode: str = "symmetric",
+        base_line: str = "non_linear",
+    ):
         self.swt = SixLevelWaveletTransform(wavelet=wavelet, mode=mode)
-        self.ekf = ExponentialFitterWithAbruptDetection()
+        self.ekf = ExponentialFitterWithAbruptDetection(base_line)
 
     def denoise(self, signal: np.ndarray, threshold: float = 0.1, method: str = "soft"):
         x = self.swt.denoise(signal, threshold=threshold, method=method)
@@ -251,13 +263,18 @@ if __name__ == "__main__":
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     import utils.data_provider as dp
+    import utils.tem_generator as tg
+
+    np.random.seed(24)
+    print("=== WEF去噪测试 ===")
+    print("使用小波基函数: db4, 对瞬变电磁信号进行去噪")
+    print("小波阈值: 0.1, 软阈值处理")
 
     # 生成测试数据
-    clean_data, noisy_data = dp.pair_simulation_data(
-        noise_level=900, data_size=400, batch_size=1
-    )
+    clean_data, time = tg.get_tem_signal()
+    noisy_data = clean_data + dp.get_noise(noise_level=1e-7, noise_size=len(clean_data))
 
-    wef = WEF(wavelet="db4", mode="symmetric")
+    wef = WEF(wavelet="db4", mode="symmetric", base_line="non_linear")
     denoised_data = wef.denoise(noisy_data, threshold=0.1, method="soft")
     print(f"Clean data shape: {clean_data.shape}")
     print(f"Noisy data shape: {noisy_data.shape}")
@@ -265,19 +282,22 @@ if __name__ == "__main__":
     print("\n=== 可视化结果 ===")
 
     # 可视化结果
-    t = np.linspace(0, 4, 400)
     plt.figure(figsize=(12, 8))
 
-    plt.subplot(3, 1, 1)
-    plt.plot(t, clean_data, label="Clean Signal", color="g")
-    plt.title("Clean Signal")
-    plt.subplot(3, 1, 2)
-    plt.plot(t, noisy_data, label="Noisy Signal", color="r")
-    plt.title("Noisy Signal")
-    plt.subplot(3, 1, 3)
-    plt.plot(t, denoised_data, label="Denoised Signal", color="b")
-    plt.title("Denoised Signal using 6-Level Wavelet Transform")
-    plt.tight_layout()
+    plt.semilogy(
+        time * 1e3, np.abs(clean_data), "g-", linewidth=2, label="Clean Signal"
+    )
+    plt.semilogy(
+        time * 1e3, np.abs(noisy_data), "r-", linewidth=1, label="Noisy Signal"
+    )
+    plt.semilogy(
+        time * 1e3, np.abs(denoised_data), "b-", linewidth=2, label="Denoised Signal"
+    )
+    plt.xlabel("Time (ms)")
+    plt.ylabel("dBz/dt (V/m²)")
+    plt.title("WEF Denoising Result")
+    plt.grid(True, which="both", ls="--", alpha=0.7)
+    plt.legend()
     plt.show()
 
     from tools import snr, mse
