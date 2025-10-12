@@ -4,3 +4,4 @@
 /data/__pycache__
 /data/raw_data/
 /checkpoints/
+/models/__pycache__

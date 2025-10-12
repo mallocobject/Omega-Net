@@ -13,6 +13,7 @@ class ResBlockV2(nn.Module):
         block_stride=1,
         use_bn=True,
         stddev=None,
+        activation=nn.ReLU(),
     ):
         super(ResBlockV2, self).__init__()
         self.in_channels = in_channels
@@ -20,6 +21,7 @@ class ResBlockV2(nn.Module):
         self.block_stride = block_stride
         self.use_bn = use_bn
         self.stddev = stddev
+        self.activation = activation
 
         # Shortcut path (identity)
         self.shortcut = nn.Identity()
@@ -59,7 +61,7 @@ class ResBlockV2(nn.Module):
         out = out + shortcut
 
         # Final ReLU activation
-        out = F.relu(out)
+        out = self.activation(out)
 
         return out
 

@@ -13,7 +13,7 @@ class Conv(nn.Module):
         kernel_size=(3, 3),
         stride=(1, 1),
         padding="SAME",
-        activation=F.relu,
+        activation=nn.ReLU(),
         stddev=None,
     ):
         super(Conv, self).__init__()

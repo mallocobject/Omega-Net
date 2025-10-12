@@ -15,6 +15,7 @@ class ResBlockV1(nn.Module):
         use_bn=True,
         stddev=None,
         activate=True,
+        activation=nn.ReLU(),
     ):
         super(ResBlockV1, self).__init__()
         self.in_channels = in_channels
@@ -24,6 +25,7 @@ class ResBlockV1(nn.Module):
         self.use_bn = use_bn
         self.stddev = stddev
         self.activate = activate
+        self.activation = activation
 
         if len(out_channels_list) != 2:
             raise ValueError(
@@ -53,7 +55,7 @@ class ResBlockV1(nn.Module):
             kernel_size=(1, 1),
             stride=block_stride,
             padding="SAME",
-            activation=F.relu,
+            activation=activation,
             stddev=stddev,
         )
         self.conv2 = Conv(
@@ -63,7 +65,7 @@ class ResBlockV1(nn.Module):
             kernel_size=(3, 3),
             stride=1,
             padding="SAME",
-            activation=F.relu,
+            activation=activation,
             stddev=stddev,
         )
         self.conv3 = Conv(
@@ -92,7 +94,7 @@ class ResBlockV1(nn.Module):
 
         # Final activation
         if self.activate:
-            out = F.relu(out)
+            out = self.activation(out)
 
         return out
 

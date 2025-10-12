@@ -263,7 +263,7 @@ if __name__ == "__main__":
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    from utils import snr, mse, add_noise_stddev, get_tem_signal
+    from utils import snr, mse, tem_generator
 
     np.random.seed(24)
     print("=== WEF去噪测试 ===")
@@ -271,8 +271,7 @@ if __name__ == "__main__":
     print("小波阈值: 0.1, 软阈值处理")
 
     # 生成测试数据
-    clean_data, time = get_tem_signal()
-    noisy_data = add_noise_stddev(clean_data, stddev=1e-6)
+    time, clean_data, _, noisy_data = tem_generator.get_tem_signal(5e-7, -5e-6, 5e-6)
 
     wef = WEF(wavelet="db4", mode="symmetric", base_line="non_linear")
     denoised_data = wef.denoise(noisy_data, threshold=0.1, method="soft")
@@ -284,13 +283,9 @@ if __name__ == "__main__":
     # 可视化结果
     plt.figure(figsize=(12, 8))
 
-    plt.semilogy(
-        time * 1e3, np.abs(clean_data), "g-", linewidth=2, label="Clean Signal"
-    )
-    plt.semilogy(
-        time * 1e3, np.abs(noisy_data), "r-", linewidth=1, label="Noisy Signal"
-    )
-    plt.semilogy(
+    plt.plot(time * 1e3, np.abs(clean_data), "g-", linewidth=2, label="Clean Signal")
+    plt.plot(time * 1e3, np.abs(noisy_data), "r-", linewidth=1, label="Noisy Signal")
+    plt.plot(
         time * 1e3, np.abs(denoised_data), "b-", linewidth=2, label="Denoised Signal"
     )
     plt.xlabel("Time (ms)")

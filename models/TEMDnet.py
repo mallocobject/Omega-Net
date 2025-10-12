@@ -1,18 +1,15 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
-from tqdm import tqdm
+
 
 import os
 import sys
-import glob
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from layers import DilatedConv, ResBlockV1, ResBlockV2
 from utils import seq2img, img2seq
-import data.dataset
 
 
 class TEMDnet(nn.Module):
@@ -29,7 +26,7 @@ class TEMDnet(nn.Module):
             kernel_size=(3, 3),
             dilation=1,
             padding="SAME",
-            activation=F.relu,
+            activation=nn.ReLU(),
             stddev=stddev,
         )
         self.dilated_conv2 = DilatedConv(
@@ -39,7 +36,7 @@ class TEMDnet(nn.Module):
             kernel_size=(3, 3),
             dilation=2,
             padding="SAME",
-            activation=F.relu,
+            activation=nn.ReLU(),
             stddev=stddev,
         )
 
@@ -92,7 +89,7 @@ class TEMDnet(nn.Module):
             kernel_size=(3, 3),
             dilation=2,
             padding="SAME",
-            activation=F.relu,
+            activation=nn.ReLU(),
             stddev=stddev,
         )
         self.dilated_conv4 = DilatedConv(
@@ -130,45 +127,8 @@ class TEMDnet(nn.Module):
 
 
 if __name__ == "__main__":
-    npy_dir = "data/raw_data/"
-    batch_size = 100
-    epochs = 200
-
-    # 获取目录下所有的 .npy 文件
-    npy_files = glob.glob(os.path.join(npy_dir, "raw_tem_data_batch_*.npy"))
-
-    dataset = data.dataset.TEMDataset(npy_files)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    model = TEMDnet()
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
-    model.train()
-
-    for epoch in range(epochs):
-        print(f"Epoch [{epoch+1}/{epochs}]")
-
-        total_loss = 0  # 用于累计每个 epoch 的损失
-        total_batches = 0  # 用于统计每个 epoch 中的 batch 数量
-
-        for t, x, label in tqdm(
-            dataloader, desc=f"Training Epoch {epoch+1}", unit="batch"
-        ):
-            estimate_noise = model(x)
-            real_noise = x - label
-
-            loss = criterion(estimate_noise, real_noise)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            # 累积损失
-            total_loss += loss.item()
-            total_batches += 1
-
-        # 计算每个 epoch 的平均损失
-        avg_loss = total_loss / total_batches
-        print(f"Epoch [{epoch+1}/{epochs}] Average Loss: {avg_loss:.4f}")
-
-    torch.save(model.state_dict(), "checkpoints/temdnet_model.pth")
+    x = torch.randn(100, 400)  # (B, L)
+    model = TEMDnet(in_channels=1)
+    output = model(x)
+    print(f"Input shape: {x.shape}")
+    print(f"Output shape: {output.shape}")

@@ -13,7 +13,7 @@ class DilatedConv(nn.Module):
         kernel_size=(3, 3),
         dilation=1,
         padding="SAME",
-        activation=F.relu,
+        activation=nn.ReLU(),
         stddev=None,
     ):
         super(DilatedConv, self).__init__()
