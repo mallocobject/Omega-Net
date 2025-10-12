@@ -3,18 +3,6 @@ import torch
 import math
 
 
-# SNR
-def snr(clean, denoised_signal):
-    noise = clean - denoised_signal
-    snr_value = 10 * np.log10(np.mean(clean**2) / np.mean(noise**2))
-    return snr_value
-
-
-# MSE
-def mse(clean, denoised_signal):
-    return np.mean((clean - denoised_signal) ** 2)
-
-
 def seq2img(seq: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     # 1D to 2D
     if isinstance(seq, np.ndarray):
@@ -69,12 +57,46 @@ def seq2img(seq: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     else:
         raise TypeError("Input must be a numpy array or a torch tensor.")
 
+    if img is None:
+        raise ValueError("Image could not be generated from input.")
+
     return img
 
 
-def img2seq(img: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
+def img2seq(
+    img: np.ndarray | torch.Tensor, origin_len: int = None
+) -> np.ndarray | torch.Tensor:
     # 2D to 1D
-    pass
+    origin_len = origin_len if origin_len else img.shape[-1] * img.shape[-2]
+    if isinstance(img, np.ndarray):
+        if img.ndim == 2:
+            img[1::2] = img[1::2, ::-1]
+            seq = img.flatten()
+            seq = seq[:origin_len]
+        elif img.ndim == 3:
+            img[:, 1::2] = img[:, 1::2, ::-1]
+            seq = img.reshape(img.shape[0], -1)
+            seq = seq[:, :origin_len]
+        else:
+            raise ValueError("Input image must be 2D or 3D.")
+    elif isinstance(img, torch.Tensor):
+        if img.dim() == 2:
+            img[1::2] = img[1::2].flip(dims=(1,))
+            seq = img.flatten()
+            seq = seq[:origin_len]
+        elif img.dim() == 3:
+            img[:, 1::2] = img[:, 1::2].flip(dims=(2,))
+            seq = img.reshape(img.size(0), -1)
+            seq = seq[:, :origin_len]
+        else:
+            raise ValueError("Input image must be 2D or 3D.")
+    else:
+        raise TypeError("Input must be a numpy array or a torch tensor.")
+
+    if seq is None:
+        raise ValueError("Sequence could not be generated from image.")
+
+    return seq
 
 
 if __name__ == "__main__":
@@ -87,6 +109,11 @@ if __name__ == "__main__":
     print("输出:")
     print(b_np)
 
+    c_np = img2seq(b_np)
+
+    print("复原输出:")
+    print(c_np)
+
     # 测试 2: 二维 NumPy 输入，非完美平方长度 (batch_size=2, length=3)
     a_np_non_square = np.array([[0, 1, 2], [3, 4, 5]])
     print("\n测试 2: 二维 NumPy 输入 (batch_size=2, length=3)")
@@ -95,6 +122,10 @@ if __name__ == "__main__":
     b_np_non_square = seq2img(a_np_non_square)
     print("输出:")
     print(b_np_non_square)
+
+    c_np_non_square = img2seq(b_np_non_square, a_np_non_square.shape[-1])
+    print("复原输出:")
+    print(c_np_non_square)
 
     # 测试 3: 二维 PyTorch 输入，完美平方长度 (batch_size=2, length=4)
     a_torch = torch.tensor([[0, 1, 2, 3], [4, 5, 6, 7]])
@@ -105,6 +136,10 @@ if __name__ == "__main__":
     print("输出:")
     print(b_torch)
 
+    c_torch = img2seq(b_torch)
+    print("复原输出:")
+    print(c_torch)
+
     # 测试 4: 二维 PyTorch 输入，非完美平方长度 (batch_size=2, length=5)
     a_torch_non_square = torch.tensor([[0, 1, 2, 3, 4], [5, 6, 7, 8, 9]])
     print("\n测试 4: 二维 PyTorch 输入 (batch_size=2, length=5)")
@@ -113,3 +148,7 @@ if __name__ == "__main__":
     b_torch_non_square = seq2img(a_torch_non_square)
     print("输出:")
     print(b_torch_non_square)
+
+    c_torch_non_square = img2seq(b_torch_non_square, a_torch_non_square.shape[-1])
+    print("复原输出:")
+    print(c_torch_non_square)

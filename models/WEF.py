@@ -262,8 +262,8 @@ if __name__ == "__main__":
     import sys
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    import utils.data_provider as dp
-    import utils.tem_generator as tg
+
+    from utils import snr, mse, add_noise_stddev, get_tem_signal
 
     np.random.seed(24)
     print("=== WEF去噪测试 ===")
@@ -271,8 +271,8 @@ if __name__ == "__main__":
     print("小波阈值: 0.1, 软阈值处理")
 
     # 生成测试数据
-    clean_data, time = tg.get_tem_signal()
-    noisy_data = clean_data + dp.get_noise(noise_level=1e-7, noise_size=len(clean_data))
+    clean_data, time = get_tem_signal()
+    noisy_data = add_noise_stddev(clean_data, stddev=1e-6)
 
     wef = WEF(wavelet="db4", mode="symmetric", base_line="non_linear")
     denoised_data = wef.denoise(noisy_data, threshold=0.1, method="soft")
@@ -299,8 +299,6 @@ if __name__ == "__main__":
     plt.grid(True, which="both", ls="--", alpha=0.7)
     plt.legend()
     plt.show()
-
-    from tools import snr, mse
 
     print(f"SNR Improvement: {snr(clean_data, denoised_data):.2f} dB")
     print(f"MSE: {mse(clean_data, denoised_data):.6f}")
