@@ -19,7 +19,7 @@ class TEMDnet(nn.Module):
         self.stddev = stddev
 
         # Dilated convolutions
-        self.dilated_conv1 = DilatedConv(
+        dilated_conv1 = DilatedConv(
             in_channels=in_channels,
             out_channels=32,
             use_bn=False,
@@ -29,7 +29,7 @@ class TEMDnet(nn.Module):
             activation=nn.ReLU(),
             stddev=stddev,
         )
-        self.dilated_conv2 = DilatedConv(
+        dilated_conv2 = DilatedConv(
             in_channels=32,
             out_channels=64,
             use_bn=False,
@@ -41,7 +41,7 @@ class TEMDnet(nn.Module):
         )
 
         # Residual blocks
-        self.res_block_1 = ResBlockV1(
+        res_block_1 = ResBlockV1(
             in_channels=64,
             out_channels_list=[64, 128],
             change_dimension=True,
@@ -50,28 +50,28 @@ class TEMDnet(nn.Module):
             stddev=stddev,
             activate=True,
         )
-        self.res_block_2 = ResBlockV2(
+        res_block_2 = ResBlockV2(
             in_channels=128,
             out_channels=128,
             block_stride=1,
             use_bn=True,
             stddev=stddev,
         )
-        self.res_block_3 = ResBlockV2(
+        res_block_3 = ResBlockV2(
             in_channels=128,
             out_channels=128,
             block_stride=1,
             use_bn=True,
             stddev=stddev,
         )
-        self.res_block_4 = ResBlockV2(
+        res_block_4 = ResBlockV2(
             in_channels=128,
             out_channels=128,
             block_stride=1,
             use_bn=True,
             stddev=stddev,
         )
-        self.res_block_5 = ResBlockV1(
+        res_block_5 = ResBlockV1(
             in_channels=128,
             out_channels_list=[128, 64],
             change_dimension=True,
@@ -82,7 +82,7 @@ class TEMDnet(nn.Module):
         )
 
         # Final dilated convolutions
-        self.dilated_conv3 = DilatedConv(
+        dilated_conv3 = DilatedConv(
             in_channels=64,
             out_channels=32,
             use_bn=False,
@@ -92,7 +92,7 @@ class TEMDnet(nn.Module):
             activation=nn.ReLU(),
             stddev=stddev,
         )
-        self.dilated_conv4 = DilatedConv(
+        dilated_conv4 = DilatedConv(
             in_channels=32,
             out_channels=1,
             use_bn=False,
@@ -103,21 +103,25 @@ class TEMDnet(nn.Module):
             stddev=stddev,
         )
 
+        self.network = nn.Sequential(
+            dilated_conv1,
+            dilated_conv2,
+            res_block_1,
+            res_block_2,
+            res_block_3,
+            res_block_4,
+            res_block_5,
+            dilated_conv3,
+            dilated_conv4,
+        )
+
     def forward(self, x: torch.Tensor, training: bool = True) -> torch.Tensor:
 
         x_length = x.shape[-1]
         img = seq2img(x)  # (B, L) -> (B, H, W), H*W=L
         img = img.unsqueeze(1)  # (B, H, W) -> (B, 1, H, W)
 
-        out = self.dilated_conv1(img, training=training)
-        out = self.dilated_conv2(out, training=training)
-        out = self.res_block_1(out, training=training)
-        out = self.res_block_2(out, training=training)
-        out = self.res_block_3(out, training=training)
-        out = self.res_block_4(out, training=training)
-        out = self.res_block_5(out, training=training)
-        out = self.dilated_conv3(out, training=training)
-        out = self.dilated_conv4(out, training=training)
+        out = self.network(img)  # (B, 1, H, W)
 
         out = out.squeeze(1)  # (B, 1, H, W) -> (B, H, W)
 

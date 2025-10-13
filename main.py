@@ -70,15 +70,6 @@ def train(model_name="temdnet"):
     torch.save(model.state_dict(), f"checkpoints/{model_name}_model.pth")
 
 
-# # test
-# model.eval()
-# with torch.no_grad():
-#     for t, x, label in dataloader:
-#         estimate_noise = model(x, training=False)
-#         denoise_data = x - estimate_noise
-#         break  # 只测试一个 batch
-
-
 def test():
     t, x, label = next(iter(dataloader))
 
@@ -113,4 +104,4 @@ def test():
 
 
 if __name__ == "__main__":
-    train("sfsdsa")
+    train("temdnet")

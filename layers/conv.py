@@ -62,7 +62,7 @@ class Conv(nn.Module):
         pad_w = (kw - 1) // 2
         return (pad_h, pad_w)
 
-    def forward(self, x: torch.Tensor, training: bool = True) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         out = self.conv(x)
         if self.bn:
             out = self.bn(out)

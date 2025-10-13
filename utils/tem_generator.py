@@ -4,7 +4,18 @@ import matplotlib.pyplot as plt
 import os
 import sys
 
-from .data_provider import add_noise_stddev
+
+def add_noise_stddev(signal: np.ndarray, stddev: float):
+    noise = np.random.normal(0, stddev, signal.shape)
+    return signal + noise
+
+
+def add_noise_snr(signal: np.ndarray, snr_db: float):
+    signal_power = np.mean(signal**2)
+    snr_linear = 10 ** (snr_db / 10)
+    noise_power = signal_power / snr_linear
+    noise = np.random.normal(0, np.sqrt(noise_power), signal.shape)
+    return signal + noise
 
 
 def get_tem_signal(

@@ -48,14 +48,14 @@ class ResBlockV2(nn.Module):
             stddev=stddev,
         )
 
-    def forward(self, x: torch.Tensor, training: bool = True) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
 
         # Shortcut path
         shortcut = self.shortcut(x)
 
         # Main path
-        out = self.conv1(x, training=training)
-        out = self.conv2(out, training=training)
+        out = self.conv1(x)
+        out = self.conv2(out)
 
         # Residual connection
         out = out + shortcut
@@ -76,6 +76,6 @@ if __name__ == "__main__":
         use_bn=True,
         stddev=None,
     )
-    output = module(x, training=True)
+    output = module(x)
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {output.shape}")
