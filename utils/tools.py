@@ -3,6 +3,16 @@ import torch
 import math
 
 
+def exists(x):
+    return x is not None
+
+
+def default(val, fn):
+    if exists(val):
+        return val
+    return fn() if callable(fn) else fn
+
+
 def seq2img(seq: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
     # 1D to 2D
     if isinstance(seq, np.ndarray):
