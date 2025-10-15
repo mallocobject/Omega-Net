@@ -7,6 +7,8 @@ from einops import reduce
 from functools import partial
 
 
+# 对卷积核进行权重标准化
+# Reference: https://arxiv.org/abs/1903.10520
 class WeightStandardizedConv1d(nn.Conv1d):
     def forward(self, x: torch.Tensor):
         eps = 1e-5 if x.dtype == torch.float32 else 1e-3

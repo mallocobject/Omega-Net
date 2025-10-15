@@ -8,7 +8,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from layers import DilatedConv, ResBlockV1, ResBlockV2
+import layers
 from utils import seq2img, img2seq
 
 
@@ -19,7 +19,7 @@ class TEMDnet(nn.Module):
         self.stddev = stddev
 
         # Dilated convolutions
-        dilated_conv1 = DilatedConv(
+        dilated_conv1 = layers.DilatedConv(
             in_channels=in_channels,
             out_channels=32,
             use_bn=False,
@@ -29,7 +29,7 @@ class TEMDnet(nn.Module):
             activation=nn.ReLU(),
             stddev=stddev,
         )
-        dilated_conv2 = DilatedConv(
+        dilated_conv2 = layers.DilatedConv(
             in_channels=32,
             out_channels=64,
             use_bn=False,
@@ -41,7 +41,7 @@ class TEMDnet(nn.Module):
         )
 
         # Residual blocks
-        res_block_1 = ResBlockV1(
+        res_block_1 = layers.ResBlockV1(
             in_channels=64,
             out_channels_list=[64, 128],
             change_dimension=True,
@@ -50,28 +50,28 @@ class TEMDnet(nn.Module):
             stddev=stddev,
             activate=True,
         )
-        res_block_2 = ResBlockV2(
+        res_block_2 = layers.ResBlockV2(
             in_channels=128,
             out_channels=128,
             block_stride=1,
             use_bn=True,
             stddev=stddev,
         )
-        res_block_3 = ResBlockV2(
+        res_block_3 = layers.ResBlockV2(
             in_channels=128,
             out_channels=128,
             block_stride=1,
             use_bn=True,
             stddev=stddev,
         )
-        res_block_4 = ResBlockV2(
+        res_block_4 = layers.ResBlockV2(
             in_channels=128,
             out_channels=128,
             block_stride=1,
             use_bn=True,
             stddev=stddev,
         )
-        res_block_5 = ResBlockV1(
+        res_block_5 = layers.ResBlockV1(
             in_channels=128,
             out_channels_list=[128, 64],
             change_dimension=True,
@@ -82,7 +82,7 @@ class TEMDnet(nn.Module):
         )
 
         # Final dilated convolutions
-        dilated_conv3 = DilatedConv(
+        dilated_conv3 = layers.DilatedConv(
             in_channels=64,
             out_channels=32,
             use_bn=False,
@@ -92,7 +92,7 @@ class TEMDnet(nn.Module):
             activation=nn.ReLU(),
             stddev=stddev,
         )
-        dilated_conv4 = DilatedConv(
+        dilated_conv4 = layers.DilatedConv(
             in_channels=32,
             out_channels=1,
             use_bn=False,

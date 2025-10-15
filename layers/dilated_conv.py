@@ -67,7 +67,7 @@ class DilatedConv(nn.Module):
         out = self.conv(x)
         if self.bn:
             out = self.bn(out)
-        if self.activation:
+        if self.activation is not None:
             out = self.activation(out)
 
         return out

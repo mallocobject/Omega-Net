@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from conv import Conv
+from .conv import Conv
 
 
 class ResBlockV2(nn.Module):

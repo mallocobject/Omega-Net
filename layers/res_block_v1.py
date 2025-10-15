@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from conv import Conv
+from .conv import Conv
 
 
 class ResBlockV1(nn.Module):
@@ -93,7 +93,7 @@ class ResBlockV1(nn.Module):
         out = out + shortcut
 
         # Final activation
-        if self.activate:
+        if self.activate is not None:
             out = self.activation(out)
 
         return out

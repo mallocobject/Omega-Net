@@ -2,12 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# import os
-# import sys
-
-# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from wstd_conv import WeightStandardizedConv1d
+from .wstd_conv import WeightStandardizedConv1d
 from typing import Optional, Tuple
 
 

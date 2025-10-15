@@ -10,10 +10,10 @@ import math
 # 这种编码方式最早在Transformer论文中提出，并被广泛应用于各种任务中。
 # 这种编码方式的优点是它能够捕捉不同时间步之间的相对关系，
 # 并且具有良好的平滑性和周期性。
-class SinPosEmbedding(nn.Module):
+class SinusoidalPosEmb(nn.Module):
     def __init__(self, dim: int):
 
-        super(SinPosEmbedding, self).__init__()
+        super(SinusoidalPosEmb, self).__init__()
         self.dim = dim
 
     def forward(self, t: torch.Tensor) -> torch.Tensor:
