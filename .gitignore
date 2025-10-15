@@ -5,3 +5,4 @@
 /data/raw_data/
 /checkpoints/
 /models/__pycache__
+/dataset

@@ -27,11 +27,6 @@ def get_tem_signal(
     """
     生成一维瞬变电磁(TEM)信号
     使用empymod库模拟更接近真实的1D地层的瞬变电磁响应
-    返回:
-        time (np.ndarray): 时间采样点(秒)
-        response (np.ndarray): TEM信号(dB/dt,磁场变化率)
-        response_with_noise (np.ndarray): 含噪声的TEM信号(dB/dt,磁场变化率)
-        response_with_noise_and_impulse (np.ndarray): 含噪声和脉冲干扰的TEM信号(dB/dt,磁场变化率)
     """
     # 地层参数（基于常见地质条件），加上随机扰动
     thickness = [
@@ -49,8 +44,8 @@ def get_tem_signal(
     depth = [0.0] + list(np.cumsum(thickness))  # 地层深度
 
     # 回线源（矩形回线）
-    coil_length = 300.0  # 回线长度：300米
-    coil_width = 250.0  # 回线宽度：250米
+    coil_length = 250.0
+    coil_width = 250.0
     src = [
         -coil_length / 2,  # 回线左下角 x 坐标
         -coil_width / 2,  # 回线左下角 y 坐标
@@ -84,7 +79,7 @@ def get_tem_signal(
         res=resistivity,  # 地层电阻率
         freqtime=time,  # 时间域采样点
         signal=-1,  # 断开信号（步进关断，典型TEM设置）
-        mrec=True,  # 计算磁场变化率（dB/dt）
+        mrec=False,  # 计算磁感应强度 B
         recpts=1,  # 单个接收点
         strength=strength,  # 设置源强度
         verb=1,  # 输出较少信息（提高计算效率）
@@ -93,6 +88,9 @@ def get_tem_signal(
 
     response = response[offset:]
     time = time[offset:]
+
+    response = response * 1e9  # 转换为 nT
+    response = response - 2000  # 增加直流
 
     response_with_noise = add_noise_stddev(response, noise_stddev)
 
@@ -115,19 +113,17 @@ def get_tem_signal(
 
 def plot_tem_signal(time: np.ndarray, signal: np.ndarray, ax: plt.Axes, label: str):
     """
-    绘制瞬变电磁信号,单位转换为nT
+    绘制瞬变电磁信号
     """
-    # 将信号从 V/m² 转换为 nT
-    scaling_factor = 1e5  # 1e4 * nT
 
     ax.plot(
         time * 1e3,
-        np.abs(signal) * scaling_factor,
+        abs(signal),
         label=label,
         linewidth=2,
     )
     ax.set_xlabel("Time (ms)")
-    ax.set_ylabel("dBz/dt (nT * 1e4)")
+    ax.set_ylabel("B (nT)")
     ax.set_title(label)
     ax.grid(True, which="both", ls="--", alpha=0.7)
 
@@ -135,7 +131,7 @@ def plot_tem_signal(time: np.ndarray, signal: np.ndarray, ax: plt.Axes, label: s
 if __name__ == "__main__":
     np.random.seed(None)
     time, response, response_with_noise, response_with_noise_and_impulse = (
-        get_tem_signal(5e-7, -5e-6, 5e-6)
+        get_tem_signal(500, -1000, 1000)
     )
 
     # 创建一个包含三个子图的窗口
