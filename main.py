@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from tqdm import tqdm
+from tqdm.rich import tqdm
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,11 +16,11 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils import snr, mse
 import data.dataset
 
-from models import TEMDnet, SFSDSA
+from models import TEMDnet, SFSDSA, UNet1D
 
 npy_dir = "data/raw_data/"
 batch_size = 100
-epochs = 200
+epochs = 1
 
 # 获取目录下所有的 .npy 文件
 npy_files = glob.glob(os.path.join(npy_dir, "raw_tem_data_batch_*.npy"))
@@ -34,6 +34,8 @@ def train(model_name="temdnet"):
         model = TEMDnet(in_channels=1)
     elif model_name == "sfsdsa":
         model = SFSDSA(in_features=400)
+    elif model_name == "unet1d":
+        model = UNet1D(in_channels=1, out_channels=1, num_features=32, num_levels=4)
     else:
         raise ValueError("Invalid model name. Choose 'temdnet' or 'sfsdsa'.")
     criterion = nn.MSELoss()
@@ -48,9 +50,13 @@ def train(model_name="temdnet"):
         total_batches = 0  # 用于统计每个 epoch 中的 batch 数量
 
         for t, x, label in tqdm(
-            dataloader, desc=f"Training Epoch {epoch+1}", unit="batch"
+            dataloader,
+            desc=f"[bold cyan]Training Epoch {epoch+1}",
+            colour="magenta",
+            unit="batch",
         ):
-            estimate_noise = model(x)
+            time_emb = torch.randint(0, 1000, (x.size(0),))  # 随机时间步
+            estimate_noise = model(x) if model_name != "unet1d" else model(x, time_emb)
             real_noise = x - label
 
             loss = criterion(estimate_noise, real_noise)
@@ -104,4 +110,4 @@ def test():
 
 
 if __name__ == "__main__":
-    train("temdnet")
+    train("unet1d")

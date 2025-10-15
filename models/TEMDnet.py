@@ -125,7 +125,7 @@ class TEMDnet(nn.Module):
 
         out = out.squeeze(1)  # (B, 1, H, W) -> (B, H, W)
 
-        out = img2seq(out, x_length)  # (B, H, W) -> (B, 1, L), L=H*W
+        out = img2seq(out, x_length)  # (B, H, W) -> (B, L), L=H*W
 
         return out
 

@@ -33,7 +33,7 @@ class SinusoidalPosEmb(nn.Module):
 
 
 if __name__ == "__main__":
-    pe = SinPosEmbedding(128)
+    pe = SinusoidalPosEmb(128)
     t = torch.tensor([1.0, 2.0, 3.0])
     print(pe(t).shape)  # should be (3, 128)
 

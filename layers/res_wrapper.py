@@ -4,11 +4,12 @@ import torch.nn.functional as F
 import math
 
 
-class ResWrapper:
+class ResWrapper(nn.Module):
     def __init__(self, fn: nn.Module):
+        super(ResWrapper, self).__init__()
         self.fn = fn
 
-    def __call__(self, x: torch.Tensor, *arg, **kargs) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, *arg, **kargs) -> torch.Tensor:
         return x + self.fn(x, *arg, **kargs)
 
 

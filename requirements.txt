@@ -9,3 +9,4 @@ pywavelets==1.8.0
 empymod==2.5.2
 tqdm==4.67.1
 einops==0.8.1
+rich == 14.2.0
