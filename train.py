@@ -1,82 +1,126 @@
+import os
+import sys
+import argparse
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torch.optim import Adam
-from tqdm.rich import tqdm  # 导入 tqdm 库
-import numpy as np
+from torch.optim import Adam, lr_scheduler
+from tqdm.rich import tqdm
+from accelerate import Accelerator
 
-import os
-import sys
-
+# ====== 项目路径 ======
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from data import dataset
 from models import TEMDnet, SFSDSA, UNet1D
 
-NPY_DIR = "dataset/"
-EPOCHS = 200
-BATCH_SIZE = 128
-LR = 1e-3
-STDDEV = 0.01
-LEARN_WEIGHT_DECAY = 0.02
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-dataset = dataset.TEMDDateset(data_dir=NPY_DIR, split="train")
-dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
+# ==================== 训练函数 ====================
+def train(args):
+    accelerator = Accelerator()
+    device = accelerator.device
+    if accelerator.is_local_main_process:
+        print(f"Using device: {device}, mixed_precision: {accelerator.mixed_precision}")
+        print(f"Training model: {args.model}")
 
+    # ------- 数据加载 -------
+    train_dataset = dataset.TEMDDateset(data_dir=args.data_dir, split="train")
+    train_loader = DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
+    )
 
-def train(model_name="temdnet"):
-    if model_name == "temdnet":
-        model = TEMDnet(in_channels=1, stddev=STDDEV).to(DEVICE)
-    elif model_name == "sfsdsa":
-        model = SFSDSA(in_features=400).to(DEVICE)
-    elif model_name == "unet1d":
-        model = UNet1D(in_channels=1, out_channels=1, num_features=32, num_levels=4).to(
-            DEVICE
-        )
+    # ------- 模型选择 -------
+    if args.model == "temdnet":
+        model = TEMDnet(in_channels=1, stddev=args.stddev)
+    elif args.model == "sfsdsa":
+        model = SFSDSA(in_features=400)
+    elif args.model == "unet1d":
+        model = UNet1D(in_channels=1, out_channels=1, num_features=32, num_levels=4)
     else:
-        raise ValueError("Invalid model name. Choose 'temdnet', 'sfsdsa', or 'unet1d'.")
+        raise ValueError(f"Invalid model name: {args.model}")
 
     criterion = nn.MSELoss()
-    optimizer = Adam(model.parameters(), lr=LR, weight_decay=LEARN_WEIGHT_DECAY)
+    optimizer = Adam(model.parameters(), lr=args.lr)
+    scheduler = lr_scheduler.StepLR(
+        optimizer, step_size=args.lr_step, gamma=args.lr_decay
+    )
 
+    # ------- accelerate 包装 -------
+    model, optimizer, train_loader = accelerator.prepare(model, optimizer, train_loader)
     model.train()
 
-    for epoch in range(EPOCHS):
-        print(f"Epoch [{epoch+1}/{EPOCHS}]")
+    # ------- 训练循环 -------
+    for epoch in range(args.epochs):
+        if accelerator.is_local_main_process:
+            print(f"\nEpoch [{epoch+1}/{args.epochs}]")
 
-        total_loss = 0  # 用于累计每个 epoch 的损失
-        total_batches = 0  # 用于统计每个 epoch 中的 batch 数量
+        total_loss = 0.0
+        num_batches = 0
 
-        for x, label in tqdm(
-            dataloader,
+        progress_bar = tqdm(
+            train_loader,
             desc=f"[bold cyan]Training Epoch {epoch+1}",
-            colour="magenta",
             unit="batch",
-        ):
-            x, label = x.to(DEVICE), label.to(DEVICE)
-            time_emb = torch.randint(0, 1000, (x.size(0),)).to(DEVICE)  # 随机时间步
-            estimate_noise = model(x) if model_name != "unet1d" else model(x, time_emb)
-            real_noise = x - label
+            colour="magenta",
+            disable=not accelerator.is_local_main_process,
+        )
 
+        for x, label in progress_bar:
+            x, label = x.to(device), label.to(device)
+            time_emb = torch.randint(0, 1000, (x.size(0),), device=device)
+
+            estimate_noise = model(x) if args.model != "unet1d" else model(x, time_emb)
+            real_noise = x - label
             loss = criterion(estimate_noise, real_noise)
 
             optimizer.zero_grad()
-            loss.backward()
+            accelerator.backward(loss)
             optimizer.step()
 
-            total_loss += loss.item()  # 累加损失
-            total_batches += 1  # 累加 batch 数量
+            total_loss += loss.item()
+            num_batches += 1
 
-        avg_loss = total_loss / total_batches if total_batches > 0 else 0
-        print(f"Average Loss for Epoch {epoch+1}: {avg_loss:.6f}")
+        scheduler.step()
+        avg_loss = total_loss / num_batches
+        if accelerator.is_local_main_process:
+            print(f"Average Loss: {avg_loss:.6f}")
 
-    # 保存模型
-    model_save_path = f"checkpoints/{model_name}_best.pth"
-    torch.save(model.state_dict(), model_save_path)
-    print(f"Model saved to {model_save_path}")
+    # ------- 保存模型 -------
+    if accelerator.is_local_main_process:
+        os.makedirs(args.ckpt_dir, exist_ok=True)
+        model_to_save = accelerator.unwrap_model(model)
+        save_path = os.path.join(args.ckpt_dir, f"{args.model}_best.pth")
+        torch.save(model_to_save.state_dict(), save_path)
+        print(f"✅ Model saved to {save_path}")
 
 
+# ==================== 主入口 ====================
 if __name__ == "__main__":
-    print(torch.cuda.is_available())
-    train("temdnet")
+    parser = argparse.ArgumentParser(description="Train 1D Signal Denoising Models")
+
+    # 数据 & 模型
+    parser.add_argument("--data_dir", type=str, default="dataset/", help="训练数据路径")
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="temdnet",
+        choices=["temdnet", "sfsdsa", "unet1d"],
+        help="模型类型",
+    )
+
+    # 训练参数
+    parser.add_argument("--epochs", type=int, default=200, help="训练轮数")
+    parser.add_argument("--batch_size", type=int, default=128, help="批大小")
+    parser.add_argument("--lr", type=float, default=1e-3, help="学习率")
+    parser.add_argument("--lr_decay", type=float, default=0.02, help="权重衰减")
+    parser.add_argument(
+        "--lr_step", type=int, default=10, help="每隔多少个 epoch 衰减一次学习率"
+    )
+    parser.add_argument("--stddev", type=float, default=0.01, help="噪声标准差")
+
+    # 其他
+    parser.add_argument(
+        "--ckpt_dir", type=str, default="checkpoints", help="模型保存路径"
+    )
+
+    args = parser.parse_args()
+    train(args)
