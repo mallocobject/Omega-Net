@@ -74,6 +74,7 @@ def train(args):
 
             optimizer.zero_grad()
             accelerator.backward(loss)
+
             optimizer.step()
 
             total_loss += loss.item()

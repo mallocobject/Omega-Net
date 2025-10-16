@@ -14,19 +14,17 @@ import glob
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from utils import snr, mse
-import data.dataset
+from data import dataset
 
 from models import TEMDnet, SFSDSA, UNet1D
 
-npy_dir = "data/raw_data/"
+NPY_DIR = "dataset"
 batch_size = 100
 epochs = 100
 
-# 获取目录下所有的 .npy 文件
-npy_files = glob.glob(os.path.join(npy_dir, "raw_tem_data_batch_*.npy"))
 
-dataset = data.dataset.TEMDataset(npy_files)
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+dataset = dataset.TEMDDateset(data_dir=NPY_DIR, split="train")
+dataloader = DataLoader(dataset, batch_size=100, shuffle=True)
 
 
 def train(model_name="temdnet"):
@@ -49,7 +47,7 @@ def train(model_name="temdnet"):
         total_loss = 0  # 用于累计每个 epoch 的损失
         total_batches = 0  # 用于统计每个 epoch 中的 batch 数量
 
-        for t, x, label in tqdm(
+        for x, label in tqdm(
             dataloader,
             desc=f"[bold cyan]Training Epoch {epoch+1}",
             colour="magenta",

@@ -6,3 +6,4 @@
 /checkpoints/
 /models/__pycache__
 /dataset
+/log

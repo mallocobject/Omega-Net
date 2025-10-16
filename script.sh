@@ -1,7 +1,7 @@
 accelerate launch --config_file ./config.yaml train.py \
     --data_dir dataset/ \
     --model temdnet \
-    --epochs 200 \
+    --epochs 222 \
     --batch_size 128 \
     --lr 1e-3 \
     --lr_decay 0.98 \
