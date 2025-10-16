@@ -19,9 +19,9 @@ def add_noise_snr(signal: np.ndarray, snr_db: float):
 
 
 def get_tem_signal(
-    noise_stddev: float,
-    min_impulse: float,
-    max_impulse: float,
+    noise_stddev: float = 500,
+    min_impulse: float = -1000,
+    max_impulse: float = 1000,
     num_impulse: int = 5,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -108,7 +108,7 @@ def get_tem_signal(
     # 将脉冲噪声加入到TEM响应信号中
     response_with_noise_and_impulse = response_with_noise + pulse_noise
 
-    return time, response, response_with_noise, response_with_noise_and_impulse
+    return response, response_with_noise, response_with_noise_and_impulse
 
 
 def plot_tem_signal(time: np.ndarray, signal: np.ndarray, ax: plt.Axes, label: str):
@@ -118,7 +118,7 @@ def plot_tem_signal(time: np.ndarray, signal: np.ndarray, ax: plt.Axes, label: s
 
     ax.plot(
         time * 1e3,
-        abs(signal),
+        np.abs(signal),
         label=label,
         linewidth=2,
     )
@@ -130,10 +130,11 @@ def plot_tem_signal(time: np.ndarray, signal: np.ndarray, ax: plt.Axes, label: s
 
 if __name__ == "__main__":
     np.random.seed(None)
-    time, response, response_with_noise, response_with_noise_and_impulse = (
-        get_tem_signal(500, -1000, 1000)
+    response, response_with_noise, response_with_noise_and_impulse = get_tem_signal(
+        500, -1000, 1000
     )
 
+    time = np.linspace(1e-3, 0.4, 400 + 10)[10:]
     # 创建一个包含三个子图的窗口
     fig, axs = plt.subplots(3, 1, figsize=(6, 12))  # 三行一列的子图
 

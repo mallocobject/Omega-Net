@@ -20,7 +20,7 @@ from models import TEMDnet, SFSDSA, UNet1D
 
 npy_dir = "data/raw_data/"
 batch_size = 100
-epochs = 1
+epochs = 100
 
 # 获取目录下所有的 .npy 文件
 npy_files = glob.glob(os.path.join(npy_dir, "raw_tem_data_batch_*.npy"))
@@ -73,16 +73,14 @@ def train(model_name="temdnet"):
         avg_loss = total_loss / total_batches
         print(f"Epoch [{epoch+1}/{epochs}] Average Loss: {avg_loss:.4f}")
 
-    torch.save(model.state_dict(), f"checkpoints/{model_name}_model.pth")
+    torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
 
 
 def test():
     t, x, label = next(iter(dataloader))
 
     model = TEMDnet()
-    model.load_state_dict(
-        torch.load("checkpoints/temdnet_model.pth", weights_only=True)
-    )
+    model.load_state_dict(torch.load("checkpoints/temdnet_best.pth", weights_only=True))
     model.eval()
     with torch.no_grad():
         estimate_noise = model(x, training=False)
@@ -110,4 +108,4 @@ def test():
 
 
 if __name__ == "__main__":
-    train("unet1d")
+    train("temdnet")

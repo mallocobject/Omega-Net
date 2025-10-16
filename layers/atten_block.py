@@ -32,7 +32,7 @@ class AttenBlock(nn.Module):
 
 
 if __name__ == "__main__":
-    block = AttentionBlock(32, heads=4, dim_head=8)
+    block = AttenBlock(32, heads=4, dim_head=8)
     x = torch.randn(8, 32, 128)
     y = block(x)
     print(y.shape)  # should be (8, 32, 128)

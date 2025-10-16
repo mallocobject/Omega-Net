@@ -1,6 +1,5 @@
 from .atten_block import AttenBlock
 from .basic_block import BasicBlock
-from .conv import Conv
 from .dilated_conv import DilatedConv
 from .down_sample import DownSample
 from .linear_atten import LinearAtten
@@ -18,7 +17,6 @@ from .wstd_conv import WeightStandardizedConv1d
 __all__ = [
     "AttenBlock",
     "BasicBlock",
-    "Conv",
     "DilatedConv",
     "DownSample",
     "LinearAtten",

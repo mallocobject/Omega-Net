@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import math
+import matplotlib.pyplot as plt
 
 
 def exists(x):
@@ -107,6 +108,34 @@ def img2seq(
         raise ValueError("Sequence could not be generated from image.")
 
     return seq
+
+
+def plot(
+    t,
+    *sig,
+    x_axis="time (ms)",
+    y_axis="B (nT)",
+    title="Signal",
+):
+    plt.figure(figsize=(12, 8))
+
+    # sig[0]: clean signal
+    # sig[1]: noisy signal
+    # sig[2]: denoised signal
+    labels = ["Clean Signal", "Noisy Signal", "Denoised Signal"]
+    colors = ["g-", "r-", "b-"]
+    linewidths = [2, 1, 2]
+    for i in range(len(sig)):
+        plt.plot(
+            t * 1e3, np.abs(sig[i]), colors[i], linewidth=linewidths[i], label=labels[i]
+        )
+
+    plt.xlabel(x_axis)
+    plt.ylabel(y_axis)
+    plt.title(title)
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 if __name__ == "__main__":
