@@ -3,7 +3,6 @@
 /layers/__pycache__
 /data/__pycache__
 /data/raw_data/
-/checkpoints/
 /models/__pycache__
 /dataset
 /log
