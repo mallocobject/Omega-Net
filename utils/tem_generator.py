@@ -18,13 +18,42 @@ def add_noise_snr(signal: np.ndarray, snr_db: float):
     return signal + noise
 
 
+def get_simple_tem_signal(
+    noise_stddev: float = 500,
+    k1: tuple = (5e4, 12e4),
+    k2: tuple = (10, 40),
+    b: tuple = (1500, 2000),
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    生成简单的一维瞬变电磁(TEM)信号
+    使用指数衰减模型模拟1D地层的瞬变电磁响应
+    k1, k2, b: 控制指数衰减模型的参数
+    noise_stddev: 高斯噪声的标准差
+    time: 100ms
+    response: nT
+    """
+    time = np.linspace(0, 4, 400)  # 时间采样点
+    k1 = np.random.randint(*k1)
+    k2 = np.random.randint(*k2)
+    b = np.random.randint(*b)
+    response = k1 * np.exp(-k2 * time) + b  # 指数衰减模型
+
+    response_with_noise = add_noise_stddev(response, noise_stddev)
+
+    time = time * 100
+
+    return time, response, response_with_noise
+
+
+# deprecated
 def get_tem_signal(
     noise_stddev: float = 500,
-    min_impulse: float = -1000,
+    min_impulse: float = -500,
     max_impulse: float = 1000,
     num_impulse: int = 5,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
+    (已废弃)
     生成一维瞬变电磁(TEM)信号
     使用empymod库模拟更接近真实的1D地层的瞬变电磁响应
     """
@@ -111,43 +140,8 @@ def get_tem_signal(
     return response, response_with_noise, response_with_noise_and_impulse
 
 
-def plot_tem_signal(time: np.ndarray, signal: np.ndarray, ax: plt.Axes, label: str):
-    """
-    绘制瞬变电磁信号
-    """
-
-    ax.plot(
-        time * 1e3,
-        np.abs(signal),
-        label=label,
-        linewidth=2,
-    )
-    ax.set_xlabel("Time (ms)")
-    ax.set_ylabel("B (nT)")
-    ax.set_title(label)
-    ax.grid(True, which="both", ls="--", alpha=0.7)
-
-
 if __name__ == "__main__":
     np.random.seed(None)
-    response, response_with_noise, response_with_noise_and_impulse = get_tem_signal(
-        500, -1000, 1000
-    )
+    response, response_with_noise, response_with_noise_and_impulse = get_tem_signal()
 
-    time = np.linspace(1e-3, 0.4, 400 + 10)[10:]
-    # 创建一个包含三个子图的窗口
-    fig, axs = plt.subplots(3, 1, figsize=(6, 12))  # 三行一列的子图
-
-    # 在不同的子图中绘制不同的信号
-    plot_tem_signal(time, response, axs[0], "TEM Response")
-    plot_tem_signal(time, response_with_noise, axs[1], "TEM Response with Noise")
-    plot_tem_signal(
-        time,
-        response_with_noise_and_impulse,
-        axs[2],
-        "TEM Response with Noise and Impulse",
-    )
-
-    # 显示图形
-    plt.tight_layout()  # 调整子图间距
-    plt.show()
+    time, response, response_with_noise = get_simple_tem_signal()

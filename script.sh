@@ -1,5 +1,5 @@
 accelerate launch --config_file ./config.yaml train.py \
-    --data_dir dataset/ \
+    --data_dir data/raw_data/ \
     --model temdnet \
     --epochs 222 \
     --batch_size 128 \

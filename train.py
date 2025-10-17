@@ -5,12 +5,17 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler
+import warnings
+from tqdm import TqdmExperimentalWarning
+
+warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
+
 from tqdm.rich import tqdm
 from accelerate import Accelerator
 
 # ====== 项目路径 ======
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from data import dataset
+from data import TEMDataset
 from models import TEMDnet, SFSDSA, UNet1D
 
 
@@ -23,7 +28,7 @@ def train(args):
         print(f"Training model: {args.model}")
 
     # ------- 数据加载 -------
-    train_dataset = dataset.TEMDDateset(data_dir=args.data_dir, split="train")
+    train_dataset = TEMDataset(data_dir=args.data_dir, split="train")
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
     )
@@ -99,7 +104,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train 1D Signal Denoising Models")
 
     # 数据 & 模型
-    parser.add_argument("--data_dir", type=str, default="dataset/", help="训练数据路径")
+    parser.add_argument(
+        "--data_dir", type=str, default="data/raw_data/", help="训练数据路径"
+    )
     parser.add_argument(
         "--model",
         type=str,

@@ -12,28 +12,20 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class TEMDataset(Dataset):
-    def __init__(self, data_dir: str | list, split: str = "train"):
-        data_path = glob.glob(os.path.join(data_dir, "raw_tem_data_batch_*.npy"))
-        if isinstance(data_path, str):
-            pack_data = np.load(data_path, allow_pickle=True)
-            self.signal_data = pack_data.tolist()
-        elif isinstance(data_path, list):
-            self.signal_data = []
+    def __init__(self, data_dir: str, split: str = "train"):
+        if split not in ["train", "test"]:
+            raise ValueError("split must be 'train' or 'test'")
+        if split == "train":
+            file_path = os.path.join(data_dir, "train_data.npy")
+        else:
+            file_path = os.path.join(data_dir, "test_data.npy")
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"{file_path} not found")
 
-            # 遍历每个文件路径，加载数据
-            if split not in ["train", "test"]:
-                raise ValueError("split must be 'train' or 'test'")
-            if split == "train":
-                data_path = data_path[:-2]  # 取前面的文件作为训练集
-            else:
-                data_path = data_path[-2:]  # 取最后一个文件作为测试集
-            for data_path in data_path:
-                pack_data = np.load(data_path, allow_pickle=True)
-                self.signal_data.extend(pack_data.tolist())  # 合并数据
+        self.signal_data = np.load(file_path, allow_pickle=True)
 
-        self.time = np.array([item["time"] for item in self.signal_data])
         self.noisy_signal = np.array(
-            [item["response_with_noise_and_impulse"] for item in self.signal_data]
+            [item["response_with_noise"] for item in self.signal_data]
         )
         self.clean_signal = np.array([item["response"] for item in self.signal_data])
 
@@ -42,13 +34,16 @@ class TEMDataset(Dataset):
 
     def __getitem__(self, idx):
         noisy_signal = torch.tensor(self.noisy_signal[idx], dtype=torch.float32)
-        time = torch.tensor(self.time[idx], dtype=torch.float32)
         clean_signal = torch.tensor(self.clean_signal[idx], dtype=torch.float32)
 
-        return time, noisy_signal, clean_signal
+        return noisy_signal, clean_signal
 
 
 class TEMDDateset(Dataset):
+    """
+    已废弃
+    """
+
     def __init__(self, data_dir: str = "dataset", split: str = "train"):
         if split not in ["train", "test"]:
             raise ValueError("split must be 'train' or 'test'")
@@ -83,11 +78,6 @@ class TEMDDateset(Dataset):
 
 if __name__ == "__main__":
     dataset = TEMDataset(data_dir="data/raw_data", split="train")
-    print(len(dataset))
-    t, x, label = dataset[0]
-    print(t.shape, x.shape, label.shape)
-
-    dataset = TEMDDateset(data_dir="dataset", split="train")
     print(len(dataset))
     x, label = dataset[0]
     print(x.shape, label.shape)
