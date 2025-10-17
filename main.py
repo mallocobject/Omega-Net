@@ -1,109 +1,67 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from tqdm.rich import tqdm
-
-import matplotlib.pyplot as plt
+from torch.optim import Adam
+from tqdm.rich import tqdm  # 导入 tqdm 库
 import numpy as np
 
 import os
 import sys
-import glob
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import snr, mse
+
 from data import dataset
+from models import TEMDnet, SFSDSA, TEMSGnet
+from utils import plot
 
-from models import TEMDnet, SFSDSA, UNet1D
+NPY_DIR = "data/raw_data"
 
-NPY_DIR = "dataset"
-batch_size = 100
-epochs = 100
+BATCH_SIZE = 20
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-dataset = dataset.TEMDDateset(data_dir=NPY_DIR, split="train")
-dataloader = DataLoader(dataset, batch_size=100, shuffle=True)
-
-
-def train(model_name="temdnet"):
-    if model_name == "temdnet":
-        model = TEMDnet(in_channels=1)
-    elif model_name == "sfsdsa":
-        model = SFSDSA(in_features=400)
-    elif model_name == "unet1d":
-        model = UNet1D(in_channels=1, out_channels=1, num_features=32, num_levels=4)
-    else:
-        raise ValueError("Invalid model name. Choose 'temdnet' or 'sfsdsa'.")
-    criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
-    model.train()
-
-    for epoch in range(epochs):
-        print(f"Epoch [{epoch+1}/{epochs}]")
-
-        total_loss = 0  # 用于累计每个 epoch 的损失
-        total_batches = 0  # 用于统计每个 epoch 中的 batch 数量
-
-        for x, label in tqdm(
-            dataloader,
-            desc=f"[bold cyan]Training Epoch {epoch+1}",
-            colour="magenta",
-            unit="batch",
-        ):
-            time_emb = torch.randint(0, 1000, (x.size(0),))  # 随机时间步
-            estimate_noise = model(x) if model_name != "unet1d" else model(x, time_emb)
-            real_noise = x - label
-
-            loss = criterion(estimate_noise, real_noise)
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            # 累积损失
-            total_loss += loss.item()
-            total_batches += 1
-
-        # 计算每个 epoch 的平均损失
-        avg_loss = total_loss / total_batches
-        print(f"Epoch [{epoch+1}/{epochs}] Average Loss: {avg_loss:.4f}")
-
-    torch.save(model.state_dict(), f"checkpoints/{model_name}_best.pth")
+dataset = dataset.TEMDataset(NPY_DIR, split="test")
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
-def test():
-    t, x, label = next(iter(dataloader))
+model_name = "sfsdsa"  # 可选 "temdnet", "sfsdsa", "temsgnet"
+model = TEMDnet(in_channels=1).to(DEVICE)
 
-    model = TEMDnet()
-    model.load_state_dict(torch.load("checkpoints/temdnet_best.pth", weights_only=True))
-    model.eval()
-    with torch.no_grad():
-        estimate_noise = model(x, training=False)
-        denoised_data = x - estimate_noise
+# ======================
+# 2️⃣ 加载模型参数
+# ======================
+model_path = f"checkpoints/{model_name}_best.pth"
+state_dict = torch.load(model_path, map_location=DEVICE, weights_only=True)
+model.load_state_dict(state_dict, strict=False)
 
-    time = t[0].numpy()
-    clean_data = label[0].numpy()
-    noisy_data = x[0].numpy()
-    denoised_data = denoised_data[0].numpy()
+print(f"✅ Loaded model weights from {model_path}")
 
-    plt.figure(figsize=(12, 8))
+model.eval()
+criterion = nn.MSELoss()
 
-    plt.plot(time * 1e3, np.abs(clean_data), "g-", linewidth=2, label="Clean Signal")
-    plt.plot(time * 1e3, np.abs(noisy_data), "r-", linewidth=1, label="Noisy Signal")
-    # plt.plot(time * 1e3, np.abs(denoised_data), "b-", linewidth=2, label="Denoised Signal")
-    plt.xlabel("Time (ms)")
-    plt.ylabel("dBz/dt (V/m²)")
-    plt.title("WEF Denoising Result")
-    plt.grid(True, which="both", ls="--", alpha=0.7)
-    plt.legend()
-    plt.show()
+# ======================
+# 3️⃣ 提前取出一批数据用于可视化
+# ======================
+vis_x, vis_label = next(iter(dataloader))  # 只取第一批数据
+vis_x, vis_label = vis_x[0:1].to(DEVICE), vis_label[0:1].to(DEVICE)
 
-    print(f"SNR Improvement: {snr(clean_data, denoised_data):.2f} dB")
-    print(f"MSE: {mse(clean_data, denoised_data):.6f}")
+with torch.no_grad():
+    time_emb = torch.randint(0, 200, (vis_x.size(0),)).to(DEVICE)
+    estimate_noise = model(vis_x, time_emb)
+    denoised_signal = vis_x - estimate_noise
 
+    noisy_signal = vis_x[0].cpu().numpy()
+    clean_signal = vis_label[0].cpu().numpy()
+    denoised_signal = denoised_signal[0].cpu().numpy()
 
-if __name__ == "__main__":
-    train("temdnet")
+    t = np.linspace(0, 400, 400)  # 时间轴（ms）
+
+    plot(
+        t,
+        clean_signal,
+        noisy_signal,
+        denoised_signal,
+        x_axis="time (ms)",
+        y_axis="B (nT)",
+        title=f"{model_name} Denoising Result",
+    )

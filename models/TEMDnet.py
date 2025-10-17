@@ -115,7 +115,7 @@ class TEMDnet(nn.Module):
             dilated_conv4,
         )
 
-    def forward(self, x: torch.Tensor, training: bool = True) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, time: torch.Tensor = None) -> torch.Tensor:
 
         x_length = x.shape[-1]
         img = seq2img(x)  # (B, L) -> (B, H, W), H*W=L

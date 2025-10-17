@@ -46,7 +46,7 @@ class SFSDSA(nn.Module):
             activate=False,
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor, time: torch.Tensor = None) -> torch.Tensor:
 
         # x: (B, L)
         encoded = self.encoder(x)  # (B, out_features)

@@ -11,7 +11,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data import TEMDataset
-from models import TEMDnet, SFSDSA, UNet1D
+from models import TEMDnet, SFSDSA, TEMSGnet
 from utils import plot
 
 NPY_DIR = "data/raw_data/"
@@ -28,15 +28,15 @@ def test(model_name="temdnet"):
     # 1️⃣ 初始化模型
     # ======================
     if model_name == "temdnet":
-        model = TEMDnet(in_channels=1).to(DEVICE)
+        model = TEMDnet(in_channels=1, stddev=0.01).to(DEVICE)
     elif model_name == "sfsdsa":
         model = SFSDSA(in_features=400).to(DEVICE)
-    elif model_name == "unet1d":
-        model = UNet1D(in_channels=1, out_channels=1, num_features=32, num_levels=4).to(
-            DEVICE
-        )
+    elif model_name == "temsgnet":
+        model = TEMSGnet(in_channels=1).to(DEVICE)
     else:
-        raise ValueError("Invalid model name. Choose 'temdnet', 'sfsdsa', or 'unet1d'.")
+        raise ValueError(
+            "Invalid model name. Choose 'temdnet', 'sfsdsa', or 'temsgnet'."
+        )
 
     # ======================
     # 2️⃣ 加载模型参数

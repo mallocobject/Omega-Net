@@ -16,7 +16,7 @@ from accelerate import Accelerator
 # ====== 项目路径 ======
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data import TEMDataset
-from models import TEMDnet, SFSDSA, UNet1D
+from models import TEMDnet, SFSDSA, TEMSGnet
 
 
 # ==================== 训练函数 ====================
@@ -38,13 +38,13 @@ def train(args):
         model = TEMDnet(in_channels=1, stddev=args.stddev)
     elif args.model == "sfsdsa":
         model = SFSDSA(in_features=400)
-    elif args.model == "unet1d":
-        model = UNet1D(in_channels=1, out_channels=1, num_features=32, num_levels=4)
+    elif args.model == "temsgnet":
+        model = TEMSGnet(in_channels=1, stddev=args.stddev)
     else:
         raise ValueError(f"Invalid model name: {args.model}")
 
     criterion = nn.MSELoss()
-    optimizer = Adam(model.parameters(), lr=args.lr)
+    optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.regularizer)
     scheduler = lr_scheduler.StepLR(
         optimizer, step_size=args.lr_step, gamma=args.lr_decay
     )
@@ -56,7 +56,9 @@ def train(args):
     # ------- 训练循环 -------
     for epoch in range(args.epochs):
         if accelerator.is_local_main_process:
-            print(f"\nEpoch [{epoch+1}/{args.epochs}]")
+            print(
+                f"\nEpoch [{epoch+1}/{args.epochs}] | LR: {scheduler.get_last_lr()[0]:.6f}"
+            )
 
         total_loss = 0.0
         num_batches = 0
@@ -71,9 +73,10 @@ def train(args):
 
         for x, label in progress_bar:
             x, label = x.to(device), label.to(device)
-            time_emb = torch.randint(0, 1000, (x.size(0),), device=device)
+            time_emb = torch.randint(0, args.time_steps, (x.size(0),), device=device)
 
-            estimate_noise = model(x) if args.model != "unet1d" else model(x, time_emb)
+            estimate_noise = model(x, time_emb)
+
             real_noise = x - label
             loss = criterion(estimate_noise, real_noise)
 
@@ -111,7 +114,7 @@ if __name__ == "__main__":
         "--model",
         type=str,
         default="temdnet",
-        choices=["temdnet", "sfsdsa", "unet1d"],
+        choices=["temdnet", "sfsdsa", "temsgnet"],
         help="模型类型",
     )
 
@@ -119,11 +122,13 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=200, help="训练轮数")
     parser.add_argument("--batch_size", type=int, default=128, help="批大小")
     parser.add_argument("--lr", type=float, default=1e-3, help="学习率")
-    parser.add_argument("--lr_decay", type=float, default=0.02, help="权重衰减")
+    parser.add_argument("--regularizer", type=float, default=0, help="正则化系数")
+    parser.add_argument("--lr_decay", type=float, default=1.0, help="权重衰减")
     parser.add_argument(
-        "--lr_step", type=int, default=10, help="每隔多少个 epoch 衰减一次学习率"
+        "--lr_step", type=int, default=100000, help="每隔多少个 epoch 衰减一次学习率"
     )
-    parser.add_argument("--stddev", type=float, default=0.01, help="噪声标准差")
+    parser.add_argument("--time_steps", type=int, default=200, help="时间步数")
+    parser.add_argument("--stddev", type=float, default=None, help="噪声标准差")
 
     # 其他
     parser.add_argument(
