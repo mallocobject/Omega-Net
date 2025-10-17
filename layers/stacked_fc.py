@@ -6,31 +6,25 @@ import torch.nn.functional as F
 class StackedFC(nn.Module):
     def __init__(
         self,
-        in_features,
-        out_features,
-        hidden_features=[],
+        layers=[],
         use_bn=False,
         activate=True,
-        activation=nn.SELU(),
+        activation=nn.ReLU(),
     ):
         super(StackedFC, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.hidden_features = hidden_features
+        self.layers = layers
         self.use_bn = use_bn
         self.activation = activation
 
-        layers = []
-        all_features = [in_features] + hidden_features + [out_features]
-        for i in range(len(all_features) - 1):
-            layers.append(nn.Linear(all_features[i], all_features[i + 1]))
-            if i < len(all_features) - 2:  # No BN after the last layer
-                if use_bn:
-                    layers.append(nn.BatchNorm1d(all_features[i + 1]))
-            if activate:
-                layers.append(activation)
+        net = []
+        for i in range(len(layers) - 1):
+            net.append(nn.Linear(layers[i], layers[i + 1]))
+            if use_bn:
+                net.append(nn.BatchNorm1d(layers[i + 1]))
+            if activate and i < len(layers) - 1:
+                net.append(activation)
 
-        self.network = nn.Sequential(*layers)
+        self.network = nn.Sequential(*net)
 
     def forward(self, x):
         return self.network(x)

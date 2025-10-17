@@ -37,7 +37,7 @@ def train(args):
     if args.model == "temdnet":
         model = TEMDnet(in_channels=1, stddev=args.stddev)
     elif args.model == "sfsdsa":
-        model = SFSDSA(in_features=400)
+        model = SFSDSA(in_features=400, stddev=args.stddev)
     elif args.model == "temsgnet":
         model = TEMSGnet(in_channels=1, stddev=args.stddev)
     else:

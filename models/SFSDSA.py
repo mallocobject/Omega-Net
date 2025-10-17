@@ -16,32 +16,26 @@ class SFSDSA(nn.Module):
     def __init__(
         self,
         in_features=400,
-        hidden_features=[200, 100],
-        out_features=400,
+        hidden_features=[256, 128, 64],
         use_bn=False,
         stddev=None,
     ):
         super(SFSDSA, self).__init__()
         self.in_features = in_features
         self.hidden_features = hidden_features
-        self.out_features = out_features
         self.use_bn = use_bn
         self.stddev = stddev
 
         # encoder
         self.encoder = StackedFC(
-            in_features=in_features,
-            out_features=out_features,
-            hidden_features=hidden_features,
+            layers=[in_features] + hidden_features,
             use_bn=use_bn,
             activate=True,
         )
 
         # decoder
         self.decoder = StackedFC(
-            in_features=out_features,
-            out_features=in_features,
-            hidden_features=hidden_features[-1:],
+            layers=hidden_features[::-1] + [in_features],
             use_bn=use_bn,
             activate=False,
         )
@@ -49,6 +43,11 @@ class SFSDSA(nn.Module):
     def forward(self, x: torch.Tensor, time: torch.Tensor = None) -> torch.Tensor:
 
         # x: (B, L)
+        x = (
+            x + torch.randn_like(x) * self.stddev
+            if self.stddev
+            else torch.zeros_like(x)
+        )
         encoded = self.encoder(x)  # (B, out_features)
         out = self.decoder(encoded)  # (B, in_features)
 
