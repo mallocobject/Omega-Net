@@ -15,16 +15,18 @@ class EarlyStopping:
         delta=0.0,
         save_mode=True,
         save_path=None,
+        save_interval=1,
         verbose=True,
     ):
         """
         参数:
-            accelerator: accelerate.Accelerator 对象，用于分布式控制
-            patience (int): 容忍验证集loss不改善的最大epoch数;若设为 -1 则禁用早停
-            delta (float): 最小改善阈值（越大，早停越严格）
-            save_mode (bool): 是否保存模型
-            save_dir (str): 模型保存目录
-            verbose (bool): 是否打印日志
+            accelerator: accelerate 管理器
+            patience: 容忍验证集 loss 不改善的最大 epoch 数
+            min_delta: 改善幅度阈值（小于此幅度视为无改善）
+            save_mode: 是否保存模型
+            save_path: 最优模型保存路径
+            save_interval: 最少间隔多少个 epoch 才能再次保存模型
+            verbose: 是否打印日志
         """
         self.accelerator = accelerator
         self.patience = patience
@@ -35,13 +37,16 @@ class EarlyStopping:
         self.delta = delta
         self.save_mode = save_mode
         self.save_path = save_path
+        self.save_interval = save_interval
         self.verbose = verbose
+
+        self.last_save_epoch = -save_interval  # 确保第一次能保存模型
 
         save_dir = os.path.dirname(save_path)
         if save_dir is not None:
             os.makedirs(save_dir, exist_ok=True)
 
-    def __call__(self, val_loss, model):
+    def __call__(self, val_loss, model, epoch):
         """每个验证阶段后调用"""
         # 检查NaN
         if np.isnan(val_loss):
@@ -57,8 +62,9 @@ class EarlyStopping:
         if self.best_score is None:
             # 第一次记录
             self.best_score = score
-            if self.save_mode:
+            if self.save_mode and (epoch - self.last_save_epoch >= self.save_interval):
                 self._save_checkpoint(val_loss, model)
+                self.last_save_epoch = epoch
         elif score < self.best_score + self.delta:
             # 没有明显改善
             self.counter += 1

@@ -9,36 +9,38 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from exps import DenoisingExperiment
 
 
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Train/Test 1D Signal Denoising Models"
-    )
+import argparse
 
-    # 数据 & 模型
+
+def get_args():
+    parser = argparse.ArgumentParser(description="TEM 一维信号去噪实验")
+
+    # ===============================
+    # 数据与模型相关参数
+    # ===============================
     parser.add_argument(
-        "--data_dir", type=str, default="./data/raw_data/", help="训练数据路径"
+        "--data_dir",
+        type=str,
+        default="./data/raw_data/",
+        help="数据集路径(train/test 通用)",
     )
     parser.add_argument(
         "--model",
         type=str,
         default="temdnet",
         choices=["temdnet", "sfsdsa", "temsgnet"],
-        help="模型类型",
+        help="选择使用的模型结构",
     )
-
-    # 训练参数
-    parser.add_argument("--epochs", type=int, default=200, help="训练轮数")
-    parser.add_argument("--batch_size", type=int, default=128, help="批大小")
-    parser.add_argument("--lr", type=float, default=1e-3, help="学习率")
-    parser.add_argument("--regularizer", type=float, default=0, help="正则化系数")
-    parser.add_argument("--lr_decay", type=float, default=1.0, help="学习率衰减系数")
     parser.add_argument(
-        "--lr_step", type=int, default=100000, help="每隔多少个 epoch 衰减一次学习率"
+        "--time_steps", type=int, default=200, help="输入信号的时间步长"
     )
-    parser.add_argument("--time_steps", type=int, default=200, help="时间步数")
-    parser.add_argument("--stddev", type=float, default=None, help="噪声标准差")
+    parser.add_argument(
+        "--stddev", type=float, default=None, help="噪声标准差（仅用于训练数据生成）"
+    )
 
+    # ===============================
     # 模式选择
+    # ===============================
     parser.add_argument(
         "--mode",
         type=str,
@@ -47,16 +49,54 @@ def parse_args():
         help="运行模式:train 或 test",
     )
 
-    # 其他
+    # ===============================
+    # 训练参数（仅 train 模式使用）
+    # ===============================
+    parser.add_argument_group("Training Parameters")
+    parser.add_argument("--epochs", type=int, default=200, help="训练轮数")
+    parser.add_argument("--batch_size", type=int, default=128, help="训练批大小")
+    parser.add_argument("--lr", type=float, default=1e-3, help="初始学习率")
+    parser.add_argument("--regularizer", type=float, default=0.0, help="L2 正则化系数")
+    parser.add_argument("--lr_decay", type=float, default=1.0, help="学习率衰减系数")
     parser.add_argument(
-        "--ckpt_dir", type=str, default="./checkpoints", help="模型保存路径"
+        "--lr_step", type=int, default=100000, help="每隔多少个 epoch 衰减一次学习率"
     )
     parser.add_argument(
-        "--load_checkpoint", type=str, default=None, help="测试时加载的模型权重路径"
+        "--ckpt_dir", type=str, default="./checkpoints", help="模型权重保存目录"
     )
+
+    # ===============================
+    # 测试参数（仅 test 模式使用）
+    # ===============================
+    parser.add_argument_group("Testing Parameters")
+    parser.add_argument(
+        "--load_checkpoint",
+        type=str,
+        default=None,
+        help="测试时加载的模型权重文件路径 (.pt/.pth)",
+    )
+
+    # ===============================
+    # 其他设置
+    # ===============================
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
 
     args = parser.parse_args()
+
+    # ===============================
+    # 自动模式修正逻辑
+    # ===============================
+    if args.mode == "test":
+        # 测试时不需要训练相关参数
+        args.epochs = None
+        args.batch_size = None
+        args.lr = None
+        args.lr_decay = None
+        args.lr_step = None
+        args.regularizer = None
+        # 必须提供加载路径
+        if args.load_checkpoint is None:
+            parser.error("--load_checkpoint 必须在测试模式下提供。")
 
     return args
 
@@ -73,7 +113,7 @@ def set_seed(seed: int):
 
 
 def main():
-    args = parse_args()
+    args = get_args()
 
     # 固定随机种子，保证可复现性
     set_seed(args.seed)

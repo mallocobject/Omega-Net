@@ -6,8 +6,13 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm.rich import tqdm
 from accelerate import Accelerator
+import torch.distributed as dist
 import numpy as np
 import time
+import warnings
+from tqdm import TqdmExperimentalWarning
+
+warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
 
 import os
 import sys
@@ -23,7 +28,9 @@ from criterions import MSECriterion, MSECriterionWithNoise
 class DenoisingExperiment:
     def __init__(self, args: argparse.Namespace):
         self.args = args
-        self.accelerator = Accelerator()
+        self.accelerator = Accelerator(
+            even_batches=False, split_batches=False, dispatch_batches=None
+        )
 
         self.model_dict = {
             "temdnet": TEMDnet,
@@ -68,6 +75,16 @@ class DenoisingExperiment:
         )
         return scheduler
 
+    def _check_early_stop(self, early_stopping):
+        stop_tensor = torch.tensor(0, device=self.accelerator.device)
+        if self.accelerator.is_main_process:
+            if early_stopping.early_stop:
+                stop_tensor.fill_(1)
+        # 同步所有进程
+        if torch.distributed.is_initialized():
+            torch.distributed.broadcast(stop_tensor, src=0)
+        return stop_tensor.item() == 1
+
     def train(self):
         train_dataloader = self._get_dataloader("train")
         valid_dataloader = self._get_dataloader("valid")
@@ -90,11 +107,13 @@ class DenoisingExperiment:
             accelerator=self.accelerator,
             patience=15,
             delta=0.0,
-            save_mode=True,
+            save_mode=False,
             save_path=os.path.join(self.args.ckpt_dir, f"{self.args.model}_best.pth"),
+            save_interval=10,
             verbose=True,
         )
 
+        vali_loss = 0.0  # 保存最后一次验证集损失
         for epoch in range(self.args.epochs):
             start_time = time.time()
             model.train()
@@ -125,15 +144,19 @@ class DenoisingExperiment:
             scheduler.step()
 
             vali_loss = self.validate(model, valid_dataloader, valid_criterion)
-            early_stopping(vali_loss, model)
+            early_stopping(vali_loss, model, epoch)
             end_time = time.time()
             self.accelerator.print(
                 f"Epoch [{epoch+1}/{self.args.epochs}] | Validation Loss: {vali_loss:.6f} | Time: {end_time - start_time:.2f}s"
             )
 
-            if early_stopping.early_stop:
-                self.accelerator.print("Early stopping triggered.")
+            if self._check_early_stop(early_stopping):
+                self.accelerator.print(
+                    "⏹ Early stopping triggered — stopping training on all devices."
+                )
                 break
+
+        early_stopping._save_checkpoint(vali_loss, model)
 
     def validate(self, model, valid_dataloader, valid_criterion):
         total_loss = []
@@ -158,4 +181,44 @@ class DenoisingExperiment:
         return vali_loss
 
     def test(self):
-        pass
+        test_dataloader = self._get_dataloader("test")
+
+        model = self._build_model()
+        test_criterion = self._select_criterion()
+
+        # ====== 加载 checkpoint ======
+        model.load_state_dict(
+            torch.load(self.args.load_checkpoint, weights_only=True, map_location="cpu")
+        )
+
+        # prepare（保证设备、DDP兼容）
+        model, test_criterion, test_dataloader = self.accelerator.prepare(
+            model, test_criterion, test_dataloader
+        )
+
+        # ====== 测试阶段 ======
+        model.eval()
+        total_loss = []
+
+        with torch.no_grad():
+            for x, label in tqdm(
+                test_dataloader,
+                desc="[bold cyan]Testing",
+                disable=not self.accelerator.is_local_main_process,
+            ):
+                x, label = x.to(self.accelerator.device), label.to(
+                    self.accelerator.device
+                )
+                time_emb = torch.randint(
+                    0,
+                    self.args.time_steps,
+                    (x.size(0),),
+                    device=self.accelerator.device,
+                )
+
+                outputs = model(x, time_emb)
+                loss = test_criterion(x, outputs, label)
+                total_loss.append(loss.item())
+
+        test_loss = np.mean(total_loss)
+        self.accelerator.print(f"✅ Test Loss: {test_loss:.6f}")
