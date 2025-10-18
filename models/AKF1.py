@@ -6,7 +6,7 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from criterions import snr, mse
-from utils import get_simple_tem_signal
+from utils import get_simple_tem_signal, tools
 
 
 class AdaptiveExtendedKalmanFilter:
@@ -155,6 +155,9 @@ if __name__ == "__main__":
     # AK-EKF去噪
     akekf_denoiser = AKEKFTEMDenoiser(n_states=3)
     denoised_data = akekf_denoiser.denoise(noisy_sig, time)
+
+    # 可以使用plot
+    # plot(time, clean_sig, noisy_sig, denoised_data, title="AK-EKF Denoising Result")
 
     # 显示AK-EKF去噪图
     plt.figure(figsize=(12, 8))

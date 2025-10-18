@@ -142,6 +142,10 @@ def get_tem_signal(
 
 if __name__ == "__main__":
     np.random.seed(None)
-    response, response_with_noise, response_with_noise_and_impulse = get_tem_signal()
+    import os
+    import sys
+
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from utils import plot
 
     time, response, response_with_noise = get_simple_tem_signal()
