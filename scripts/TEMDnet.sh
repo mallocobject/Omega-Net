@@ -9,3 +9,4 @@ accelerate launch --config_file ./config.yaml run.py \
     --lr_step 10 \
     --stddev 0.01 \
     --ckpt_dir ./checkpoints \
+    > log/temdnet.log 2>&1

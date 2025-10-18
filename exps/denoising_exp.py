@@ -17,6 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import TEMDnet, SFSDSA, TEMSGnet
 from data import TEMDataset
 from utils import EarlyStopping
+from criterions import MSECriterion, MSECriterionWithNoise
 
 
 class DenoisingExperiment:
@@ -31,7 +32,7 @@ class DenoisingExperiment:
         }
 
     def _build_model(self):
-        model = self.model_dict[self.args.model](self.args.stddev)
+        model = self.model_dict[self.args.model](stddev=self.args.stddev)
         return model
 
     def _get_dataloader(self, split: str):
@@ -40,12 +41,18 @@ class DenoisingExperiment:
             dataset,
             batch_size=self.args.batch_size,
             shuffle=(split == "train"),
-            num_workers=4,
+            num_workers=2,
         )
         return dataloader
 
     def _select_criterion(self):
-        return nn.MSELoss()
+        if self.args.model == "temsgnet" or self.args.model == "temdnet":
+            criterion = MSECriterionWithNoise()
+        elif self.args.model == "sfsdsa":
+            criterion = MSECriterion()
+        else:
+            raise ValueError(f"Unknown model type: {self.args.model}")
+        return criterion
 
     def _select_optimizer(self, model: nn.Module):
         optimizer = optim.Adam(
@@ -67,8 +74,8 @@ class DenoisingExperiment:
 
         model = self._build_model()
 
-        train_criterion = model.metric
-        valid_criterion = model.metric
+        train_criterion = self._select_criterion()
+        valid_criterion = self._select_criterion()
 
         optimizer = self._select_optimizer(model)
         scheduler = self._select_scheduler(optimizer)
@@ -79,7 +86,14 @@ class DenoisingExperiment:
             )
         )
 
-        early_stopping = EarlyStopping(accelerator=self.accelerator)
+        early_stopping = EarlyStopping(
+            accelerator=self.accelerator,
+            patience=15,
+            delta=0.0,
+            save_mode=True,
+            save_path=os.path.join(self.args.ckpt_dir, f"{self.args.model}_best.pth"),
+            verbose=True,
+        )
 
         for epoch in range(self.args.epochs):
             start_time = time.time()
@@ -104,14 +118,14 @@ class DenoisingExperiment:
 
                 optimizer.zero_grad()
                 outputs = model(x, time_emb)
-                loss = train_criterion(outputs, label)
+                loss = train_criterion(x.detach(), outputs, label)
                 self.accelerator.backward(loss)
                 optimizer.step()
 
             scheduler.step()
 
             vali_loss = self.validate(model, valid_dataloader, valid_criterion)
-            early_stopping(vali_loss, model, self.args.ckpt_dir)
+            early_stopping(vali_loss, model)
             end_time = time.time()
             self.accelerator.print(
                 f"Epoch [{epoch+1}/{self.args.epochs}] | Validation Loss: {vali_loss:.6f} | Time: {end_time - start_time:.2f}s"
@@ -137,7 +151,7 @@ class DenoisingExperiment:
                 )
 
                 outputs = model(x, time_emb)
-                loss = valid_criterion(outputs, label)
+                loss = valid_criterion(x.detach(), outputs, label)
                 total_loss.append(loss.item())
 
         vali_loss = np.average(total_loss)

@@ -216,17 +216,6 @@ class TEMSGnet(UNet1D):
             res_block_groups=4,
             stddev=stddev,
         )
-        self.metric = nn.MSELoss()
-
-    def criterion(self, x: torch.Tensor, outputs: torch.Tensor, label: torch.Tensor):
-        """
-        x: noisy signal
-        outputs: noise
-        label: clean signal
-        """
-        x = x.detach
-        outputs = x - outputs
-        return self.metric(outputs, label)
 
 
 if __name__ == "__main__":

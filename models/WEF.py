@@ -263,7 +263,8 @@ if __name__ == "__main__":
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    from utils import snr, mse, tem_generator
+    from criterions import snr, mse
+    from utils import tem_generator
 
     np.random.seed(24)
     print("=== WEF去噪测试 ===")

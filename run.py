@@ -16,7 +16,7 @@ def parse_args():
 
     # 数据 & 模型
     parser.add_argument(
-        "--data_dir", type=str, default="data/raw_data/", help="训练数据路径"
+        "--data_dir", type=str, default="./data/raw_data/", help="训练数据路径"
     )
     parser.add_argument(
         "--model",
@@ -49,8 +49,12 @@ def parse_args():
 
     # 其他
     parser.add_argument(
-        "--ckpt_dir", type=str, default="checkpoints", help="模型保存路径"
+        "--ckpt_dir", type=str, default="./checkpoints", help="模型保存路径"
     )
+    parser.add_argument(
+        "--load_checkpoint", type=str, default=None, help="测试时加载的模型权重路径"
+    )
+    parser.add_argument("--seed", type=int, default=42, help="随机种子")
 
     args = parser.parse_args()
 
@@ -77,13 +81,12 @@ def main():
     # 创建权重保存路径
     os.makedirs(args.ckpt_dir, exist_ok=True)
 
-    # 初始化实验类
-    experiment = DenoisingExperiment(args)
+    task = DenoisingExperiment(args)
 
     if args.mode == "train":
-        experiment.train()
+        task.train()
     elif args.mode == "test":
-        experiment.test()
+        task.test()
     else:
         raise ValueError(f"Unsupported mode: {args.mode}")
 

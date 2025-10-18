@@ -1,9 +1,5 @@
-/__pycache__
-/utils/__pycache__
-/layers/__pycache__
-/data/__pycache__
+*/__pycache__
 /data/raw_data/
-/models/__pycache__
 /dataset
 /log
 /jupyter_
