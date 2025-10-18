@@ -38,6 +38,8 @@ def get_args():
         "--stddev", type=float, default=None, help="噪声标准差（仅用于训练数据生成）"
     )
 
+    parser.add_argument("--batch_size", type=int, default=32, help="训练批大小")
+
     # ===============================
     # 模式选择
     # ===============================
@@ -54,7 +56,6 @@ def get_args():
     # ===============================
     parser.add_argument_group("Training Parameters")
     parser.add_argument("--epochs", type=int, default=200, help="训练轮数")
-    parser.add_argument("--batch_size", type=int, default=128, help="训练批大小")
     parser.add_argument("--lr", type=float, default=1e-3, help="初始学习率")
     parser.add_argument("--regularizer", type=float, default=0.0, help="L2 正则化系数")
     parser.add_argument("--lr_decay", type=float, default=1.0, help="学习率衰减系数")
@@ -89,7 +90,6 @@ def get_args():
     if args.mode == "test":
         # 测试时不需要训练相关参数
         args.epochs = None
-        args.batch_size = None
         args.lr = None
         args.lr_decay = None
         args.lr_step = None

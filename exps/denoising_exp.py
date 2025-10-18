@@ -28,9 +28,7 @@ from criterions import MSECriterion, MSECriterionWithNoise
 class DenoisingExperiment:
     def __init__(self, args: argparse.Namespace):
         self.args = args
-        self.accelerator = Accelerator(
-            even_batches=False, split_batches=False, dispatch_batches=None
-        )
+        self.accelerator = Accelerator()
 
         self.model_dict = {
             "temdnet": TEMDnet,

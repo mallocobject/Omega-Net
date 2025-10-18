@@ -5,7 +5,7 @@ accelerate launch --config_file ./config.yaml run.py \
     --epochs 200 \
     --batch_size 32 \
     --lr 1e-5 \
-    --lr_decay 0.5 \
+    --lr_decay 0.98 \
     --lr_step 10 \
     --time_steps 200 \
     --ckpt_dir ./checkpoints \

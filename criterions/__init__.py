@@ -1,9 +1,12 @@
-from .mse_criterion import MSECriterion, MSECriterionWithNoise
+from .SFSDSA_loss import SFSDSALoss
+from .TEMDnet_loss import TEMDnetLoss
+from .TEMSGnet_loss import DiffusionLoss
 from .metric import mse, snr
 
 __all__ = [
-    "MSECriterion",
-    "MSECriterionWithNoise",
     "mse",
     "snr",
+    "SFSDSALoss",
+    "TEMDnetLoss",
+    "DiffusionLoss",
 ]
