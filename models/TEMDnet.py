@@ -15,6 +15,7 @@ from utils import seq2img, img2seq
 class TEMDnet(nn.Module):
     def __init__(self, in_channels=1, stddev=None):
         super(TEMDnet, self).__init__()
+        self.metric = nn.MSELoss()
         self.in_channels = in_channels
         self.stddev = stddev
 
@@ -128,6 +129,16 @@ class TEMDnet(nn.Module):
         out = img2seq(out, x_length)  # (B, H, W) -> (B, L), L=H*W
 
         return out
+
+    def criterion(self, x: torch.Tensor, outputs: torch.Tensor, label: torch.Tensor):
+        """
+        x: noisy signal
+        outputs: noise
+        label: clean signal
+        """
+        x = x.detach
+        outputs = x - outputs
+        return self.metric(outputs, label)
 
 
 if __name__ == "__main__":

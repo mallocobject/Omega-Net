@@ -43,5 +43,6 @@ def save_data_to_npy(num_samples: int, file_name: str):
 
 if __name__ == "__main__":
     np.random.seed(None)  # 确保每次运行生成不同的数据
-    save_data_to_npy(num_samples=10000, file_name="train_data")
-    save_data_to_npy(num_samples=100, file_name="test_data")
+    save_data_to_npy(num_samples=8000, file_name="train_data")
+    save_data_to_npy(num_samples=1000, file_name="valid_data")
+    save_data_to_npy(num_samples=1000, file_name="test_data")

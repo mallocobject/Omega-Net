@@ -21,6 +21,7 @@ class SFSDSA(nn.Module):
         stddev=None,
     ):
         super(SFSDSA, self).__init__()
+        self.metric = nn.MSELoss()
         self.in_features = in_features
         self.hidden_features = hidden_features
         self.use_bn = use_bn
@@ -52,6 +53,14 @@ class SFSDSA(nn.Module):
         out = self.decoder(encoded)  # (B, in_features)
 
         return out
+
+    def criterion(self, x: torch.Tensor, outputs: torch.Tensor, label: torch.Tensor):
+        """
+        x: noisy signal
+        outputs: estimate signal
+        label: clean signal
+        """
+        return self.metric(outputs, label)
 
 
 if __name__ == "__main__":

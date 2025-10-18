@@ -1,0 +1,147 @@
+import argparse
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from tqdm.rich import tqdm
+from accelerate import Accelerator
+import numpy as np
+import time
+
+import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from models import TEMDnet, SFSDSA, TEMSGnet
+from data import TEMDataset
+from utils import EarlyStopping
+
+
+class DenoisingExperiment:
+    def __init__(self, args: argparse.Namespace):
+        self.args = args
+        self.accelerator = Accelerator()
+
+        self.model_dict = {
+            "temdnet": TEMDnet,
+            "sfsdsa": SFSDSA,
+            "temsgnet": TEMSGnet,
+        }
+
+    def _build_model(self):
+        model = self.model_dict[self.args.model](self.args.stddev)
+        return model
+
+    def _get_dataloader(self, split: str):
+        dataset = TEMDataset(data_dir=self.args.data_dir, split=split)
+        dataloader = DataLoader(
+            dataset,
+            batch_size=self.args.batch_size,
+            shuffle=(split == "train"),
+            num_workers=4,
+        )
+        return dataloader
+
+    def _select_criterion(self):
+        return nn.MSELoss()
+
+    def _select_optimizer(self, model: nn.Module):
+        optimizer = optim.Adam(
+            model.parameters(),
+            lr=self.args.lr,
+            weight_decay=self.args.regularizer,
+        )
+        return optimizer
+
+    def _select_scheduler(self, optimizer: optim.Optimizer):
+        scheduler = optim.lr_scheduler.StepLR(
+            optimizer, step_size=self.args.lr_step, gamma=self.args.lr_decay
+        )
+        return scheduler
+
+    def train(self):
+        train_dataloader = self._get_dataloader("train")
+        valid_dataloader = self._get_dataloader("valid")
+
+        model = self._build_model()
+
+        train_criterion = model.metric
+        valid_criterion = model.metric
+
+        optimizer = self._select_optimizer(model)
+        scheduler = self._select_scheduler(optimizer)
+
+        model, train_criterion, optimizer, train_dataloader, valid_dataloader = (
+            self.accelerator.prepare(
+                model, train_criterion, optimizer, train_dataloader, valid_dataloader
+            )
+        )
+
+        early_stopping = EarlyStopping(accelerator=self.accelerator)
+
+        for epoch in range(self.args.epochs):
+            start_time = time.time()
+            model.train()
+            progress_bar = tqdm(
+                train_dataloader,
+                desc=f"[bold cyan]Training Epoch {epoch+1}",
+                unit="batch",
+                colour="magenta",
+                disable=not self.accelerator.is_local_main_process,
+            )
+            for x, label in progress_bar:
+                x, label = x.to(self.accelerator.device), label.to(
+                    self.accelerator.device
+                )
+                time_emb = torch.randint(
+                    0,
+                    self.args.time_steps,
+                    (x.size(0),),
+                    device=self.accelerator.device,
+                )
+
+                optimizer.zero_grad()
+                outputs = model(x, time_emb)
+                loss = train_criterion(outputs, label)
+                self.accelerator.backward(loss)
+                optimizer.step()
+
+            scheduler.step()
+
+            vali_loss = self.validate(model, valid_dataloader, valid_criterion)
+            early_stopping(vali_loss, model, self.args.ckpt_dir)
+            end_time = time.time()
+            self.accelerator.print(
+                f"Epoch [{epoch+1}/{self.args.epochs}] | Validation Loss: {vali_loss:.6f} | Time: {end_time - start_time:.2f}s"
+            )
+
+            if early_stopping.early_stop:
+                self.accelerator.print("Early stopping triggered.")
+                break
+
+    def validate(self, model, valid_dataloader, valid_criterion):
+        total_loss = []
+        with torch.no_grad():
+            model.eval()
+            for x, label in valid_dataloader:
+                x, label = x.to(self.accelerator.device), label.to(
+                    self.accelerator.device
+                )
+                time_emb = torch.randint(
+                    0,
+                    self.args.time_steps,
+                    (x.size(0),),
+                    device=self.accelerator.device,
+                )
+
+                outputs = model(x, time_emb)
+                loss = valid_criterion(outputs, label)
+                total_loss.append(loss.item())
+
+        vali_loss = np.average(total_loss)
+        return vali_loss
+
+    def test(self):
+        pass

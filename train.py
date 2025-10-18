@@ -35,11 +35,11 @@ def train(args):
 
     # ------- 模型选择 -------
     if args.model == "temdnet":
-        model = TEMDnet(in_channels=1, stddev=args.stddev)
+        model = TEMDnet(stddev=args.stddev)
     elif args.model == "sfsdsa":
-        model = SFSDSA(in_features=400, stddev=args.stddev)
+        model = SFSDSA(stddev=args.stddev)
     elif args.model == "temsgnet":
-        model = TEMSGnet(in_channels=1, stddev=args.stddev)
+        model = TEMSGnet(stddev=args.stddev)
     else:
         raise ValueError(f"Invalid model name: {args.model}")
 

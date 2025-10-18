@@ -25,7 +25,12 @@ dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
 model_name = "sfsdsa"  # 可选 "temdnet", "sfsdsa", "temsgnet"
-model = TEMDnet(in_channels=1).to(DEVICE)
+if model_name == "temdnet":
+    model = TEMDnet(stddev=0.01).to(DEVICE)
+elif model_name == "sfsdsa":
+    model = SFSDSA().to(DEVICE)
+elif model_name == "temsgnet":
+    model = TEMSGnet().to(DEVICE)
 
 # ======================
 # 2️⃣ 加载模型参数

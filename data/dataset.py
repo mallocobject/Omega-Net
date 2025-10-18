@@ -13,10 +13,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class TEMDataset(Dataset):
     def __init__(self, data_dir: str, split: str = "train"):
-        if split not in ["train", "test"]:
+        if split not in ["train", "valid", "test"]:
             raise ValueError("split must be 'train' or 'test'")
         if split == "train":
             file_path = os.path.join(data_dir, "train_data.npy")
+        elif split == "valid":
+            file_path = os.path.join(data_dir, "valid_data.npy")
         else:
             file_path = os.path.join(data_dir, "test_data.npy")
         if not os.path.exists(file_path):
