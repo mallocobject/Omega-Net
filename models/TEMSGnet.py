@@ -205,17 +205,96 @@ class UNet1D(nn.Module):
         return x
 
 
-class TEMSGnet(UNet1D):
-    def __init__(self, in_channels=1, stddev=None):
-        super(TEMSGnet, self).__init__(
-            in_channels=in_channels,
-            out_channels=in_channels,
+def extract(a, t, x_shape):
+    """
+    Extract values from a 1-D tensor `a` for a batch of indices `t`,
+    and reshape to `x_shape`.
+    """
+    batch_size = t.shape[0]
+    out = a.gather(-1, t).float()
+    return out.view(batch_size, *((1,) * (len(x_shape) - 1)))
+
+
+class TEMSGnet(nn.Module):
+    def __init__(
+        self,
+        timesteps=1000,
+        beta_start=1e-4,
+        beta_end=0.02,
+        stddev=None,
+    ):
+        super(TEMSGnet, self).__init__()
+        self.model = UNet1D(
+            in_channels=1,
+            out_channels=1,
             num_features=32,
             num_levels=4,
             is_cond=True,
             res_block_groups=4,
-            stddev=stddev,
         )
+        self.timesteps = timesteps
+        betas = torch.linspace(beta_start, beta_end, timesteps)
+        alphas = 1.0 - betas
+        alpha_hats = torch.cumprod(alphas, dim=0)
+
+        self.register_buffer("betas", betas)
+        self.register_buffer("alphas", alphas)
+        self.register_buffer("alpha_hats", alpha_hats)
+        self.register_buffer("sqrt_recip_alphas_hat", torch.sqrt(1.0 / alpha_hats))
+        self.register_buffer("sqrt_one_minus_alpha_hats", torch.sqrt(1.0 - alpha_hats))
+
+    @torch.no_grad()
+    def p_denoise_step(
+        self,
+        x_t: torch.Tensor,
+        t: torch.Tensor,
+        x_self_cond: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """
+        Perform one denoising step.
+        x_t: Noisy input at time step t
+        t: Time step tensor
+        x_self_cond: Optional self-conditioning input
+        """
+        beta_t = extract(self.betas, t, x_t.shape)
+        sqrt_recip_alpha_hat_t = extract(self.sqrt_recip_alphas_hat, t, x_t.shape)
+        sqrt_one_minus_alpha_hat_t = extract(
+            self.sqrt_one_minus_alpha_hats, t, x_t.shape
+        )
+
+        # Predict the noise
+        model_output = self.model(x_t, t, x_self_cond)
+
+        # Compute the denoised output
+        x_0_pred = sqrt_recip_alpha_hat_t * (
+            x_t - beta_t / sqrt_one_minus_alpha_hat_t * model_output
+        )
+
+        # 不加噪声
+        return x_0_pred
+
+    @torch.no_grad()
+    def denoise_from_noisy(self, x_noisy, condition=None, start_t=None, steps=None):
+        """
+        从含噪信号开始去噪
+        - x_noisy: 含噪输入 (B, L)
+        - condition: 条件输入 (B, L)
+        - start_t: 起始时间步（可根据噪声程度设定）
+        - steps: 限制反扩散步数（默认全程）
+        """
+        self.model.eval()
+        B = x_noisy.shape[0]
+        if start_t is None:
+            start_t = self.timesteps - 1
+        if steps is None:
+            steps = start_t + 1
+
+        # 反向扩散过程
+        x_t = x_noisy
+        for t in reversed(range(start_t, steps)):
+            t_batch = torch.full((B,), t, dtype=torch.long, device=x_t.device)
+            x_t = self.p_denoise_step(x_t, t_batch, x_self_cond=condition)
+        return x_t
 
 
 if __name__ == "__main__":

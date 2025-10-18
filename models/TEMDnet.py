@@ -13,14 +13,14 @@ from utils import seq2img, img2seq
 
 
 class TEMDnet(nn.Module):
-    def __init__(self, in_channels=1, stddev=None):
+    def __init__(self, stddev=None):
         super(TEMDnet, self).__init__()
-        self.in_channels = in_channels
+        self.in_channels = 1
         self.stddev = stddev
 
         # Dilated convolutions
         dilated_conv1 = layers.DilatedConv(
-            in_channels=in_channels,
+            in_channels=1,
             out_channels=32,
             use_bn=False,
             kernel_size=(3, 3),
