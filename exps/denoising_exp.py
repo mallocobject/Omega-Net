@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import TEMDnet, SFSDSA, TEMSGnet
 from data import TEMDataset
 from utils import EarlyStopping
-from criterions import MSECriterion, MSECriterionWithNoise
+from criterions import SFSDSALoss, TEMDnetLoss, TEMSGnetLoss
 
 
 class DenoisingExperiment:
@@ -37,7 +37,14 @@ class DenoisingExperiment:
         }
 
     def _build_model(self):
-        model = self.model_dict[self.args.model](stddev=self.args.stddev)
+        if self.args.model == "temdnet":
+            model = TEMDnet(stddev=self.args.stddev)
+        elif self.args.model == "sfsdsa":
+            model = SFSDSA(stddev=self.args.stddev)
+        elif self.args.model == "temsgnet":
+            model = TEMSGnet(timesteps=self.args.time_steps, stddev=self.args.stddev)
+        else:
+            raise ValueError(f"Unknown model type: {self.args.model}")
         return model
 
     def _get_dataloader(self, split: str):
@@ -51,10 +58,12 @@ class DenoisingExperiment:
         return dataloader
 
     def _select_criterion(self):
-        if self.args.model == "temsgnet" or self.args.model == "temdnet":
-            criterion = MSECriterionWithNoise()
+        if self.args.model == "temdnet":
+            criterion = TEMDnetLoss()
+        elif self.args.model == "temsgnet":
+            criterion = TEMSGnetLoss()
         elif self.args.model == "sfsdsa":
-            criterion = MSECriterion()
+            criterion = SFSDSALoss()
         else:
             raise ValueError(f"Unknown model type: {self.args.model}")
         return criterion
@@ -126,6 +135,7 @@ class DenoisingExperiment:
                 x, label = x.to(self.accelerator.device), label.to(
                     self.accelerator.device
                 )
+
                 time_emb = torch.randint(
                     0,
                     self.args.time_steps,
@@ -134,7 +144,7 @@ class DenoisingExperiment:
                 )
 
                 optimizer.zero_grad()
-                outputs = model(x, time_emb)
+                outputs = model(x, label, time_emb)
                 loss = train_criterion(x.detach(), outputs, label)
                 self.accelerator.backward(loss)
                 optimizer.step()
@@ -171,7 +181,7 @@ class DenoisingExperiment:
                     device=self.accelerator.device,
                 )
 
-                outputs = model(x, time_emb)
+                outputs = model(x, label, time_emb)
                 loss = valid_criterion(x.detach(), outputs, label)
                 total_loss.append(loss.item())
 
@@ -207,15 +217,14 @@ class DenoisingExperiment:
                 x, label = x.to(self.accelerator.device), label.to(
                     self.accelerator.device
                 )
-                time_emb = torch.randint(
-                    0,
-                    self.args.time_steps,
-                    (x.size(0),),
-                    device=self.accelerator.device,
-                )
-
-                outputs = model(x, time_emb)
-                loss = test_criterion(x, outputs, label)
+                if self.args.model == "temsgnet":
+                    outputs = model.module.denoise_from_noisy(
+                        x, x, self.args.start_step
+                    )
+                    loss = F.mse_loss(outputs, label)
+                else:
+                    outputs = model(x)
+                    loss = test_criterion(x, outputs, label)
                 total_loss.append(loss.item())
 
         test_loss = np.mean(total_loss)

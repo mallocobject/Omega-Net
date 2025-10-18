@@ -24,7 +24,7 @@ dataset = dataset.TEMDataset(NPY_DIR, split="test")
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
-model_name = "sfsdsa"  # 可选 "temdnet", "sfsdsa", "temsgnet"
+model_name = "temsgnet"  # 可选 "temdnet", "sfsdsa", "temsgnet"
 if model_name == "temdnet":
     model = TEMDnet(stddev=0.01).to(DEVICE)
 elif model_name == "sfsdsa":
@@ -51,9 +51,9 @@ vis_x, vis_label = next(iter(dataloader))  # 只取第一批数据
 vis_x, vis_label = vis_x[0:1].to(DEVICE), vis_label[0:1].to(DEVICE)
 
 with torch.no_grad():
-    time_emb = torch.randint(0, 200, (vis_x.size(0),)).to(DEVICE)
-    estimate_noise = model(vis_x, time_emb)
-    denoised_signal = vis_x - estimate_noise
+    estimate_noise = model.denoise_from_noisy(vis_x, vis_x, 10)
+    # denoised_signal = vis_x - estimate_noise
+    denoised_signal = estimate_noise  # TEMSGnet 直接输出去噪结果
 
     noisy_signal = vis_x[0].cpu().numpy()
     clean_signal = vis_label[0].cpu().numpy()

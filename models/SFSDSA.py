@@ -40,7 +40,9 @@ class SFSDSA(nn.Module):
             activate=False,
         )
 
-    def forward(self, x: torch.Tensor, time: torch.Tensor = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, _=None, time: torch.Tensor = None
+    ) -> torch.Tensor:
 
         # x: (B, L)
         x = (

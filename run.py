@@ -32,9 +32,6 @@ def get_args():
         help="选择使用的模型结构",
     )
     parser.add_argument(
-        "--time_steps", type=int, default=200, help="输入信号的时间步长"
-    )
-    parser.add_argument(
         "--stddev", type=float, default=None, help="噪声标准差（仅用于训练数据生成）"
     )
 
@@ -75,6 +72,18 @@ def get_args():
         type=str,
         default=None,
         help="测试时加载的模型权重文件路径 (.pt/.pth)",
+    )
+    parser.add_argument(
+        "--time_steps",
+        type=int,
+        default=1000,
+        help="输入信号的时间步长（仅对 TEMSGnet 有效）",
+    )
+    parser.add_argument(
+        "--start_step",
+        type=int,
+        default=0,
+        help="TEMSGnet 测试时的起始时间步（仅对 TEMSGnet 有效）",
     )
 
     # ===============================

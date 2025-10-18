@@ -157,6 +157,9 @@ class UNet1D(nn.Module):
         if self.is_cond:
             y = default(x_self_cond, lambda: torch.zeros_like(x))
 
+        if y.dim() == 2:
+            y = y.unsqueeze(1)  # (B, L) -> (B, C, L)
+
         if self.stddev is not None:
             noise = torch.randn_like(x) * self.stddev
             x = x + noise
@@ -294,7 +297,30 @@ class TEMSGnet(nn.Module):
         for t in reversed(range(start_t, steps)):
             t_batch = torch.full((B,), t, dtype=torch.long, device=x_t.device)
             x_t = self.p_denoise_step(x_t, t_batch, x_self_cond=condition)
-        return x_t
+        return x_t  # 返回去噪结果(esimate signal)
+
+    def forward(
+        self,
+        x_self_cond: torch.Tensor,
+        x: torch.Tensor,
+        time: torch.Tensor,
+    ) -> torch.Tensor:
+        betas = self.betas
+        alphas = self.alphas
+        alpha_hats = self.alpha_hats
+
+        # 当前时间步对应的系数
+        sqrt_alpha_hat = torch.sqrt(alpha_hats[time])
+        sqrt_one_minus_alpha_hat = torch.sqrt(1.0 - alpha_hats[time])
+
+        # 添加噪声
+        noise = torch.randn_like(x)
+        x_t = sqrt_alpha_hat[:, None] * x + sqrt_one_minus_alpha_hat[:, None] * noise
+
+        # 模型预测噪声
+        out = self.model(x_t, time, x_self_cond=x_self_cond)
+
+        return out
 
 
 if __name__ == "__main__":

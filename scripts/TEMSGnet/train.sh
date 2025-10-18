@@ -3,9 +3,9 @@ accelerate launch --config_file ./config.yaml run.py \
     --data_dir ./data/raw_data/ \
     --model temsgnet \
     --epochs 200 \
-    --batch_size 32 \
+    --batch_size 64 \
     --lr 1e-5 \
     --lr_decay 0.98 \
     --lr_step 10 \
-    --time_steps 200 \
+    --time_steps 1000 \
     --ckpt_dir ./checkpoints \
