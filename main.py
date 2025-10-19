@@ -20,7 +20,17 @@ NPY_DIR = "data/raw_data"
 BATCH_SIZE = 20
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-dataset = dataset.TEMDataset(NPY_DIR, split="test")
+stats = np.load(os.path.join(NPY_DIR, "norm_stats.npz"))
+mean, std = stats["mean"], stats["std"]
+
+dataset = dataset.TEMDataset(
+    NPY_DIR,
+    split="test",
+    normalize=True,
+    method="zscore",
+    mean=mean,
+    std=std,
+)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
@@ -47,8 +57,12 @@ criterion = nn.MSELoss()
 # ======================
 # 3️⃣ 提前取出一批数据用于可视化
 # ======================
-vis_x, vis_label = next(iter(dataloader))  # 只取第一批数据
-vis_x, vis_label = vis_x[0:1].to(DEVICE), vis_label[0:1].to(DEVICE)
+# vis_x, vis_label = next(iter(dataloader))  # 只取第一批数据
+# 随机取一条数据进行可视化
+vis_idx = np.random.randint(0, len(dataset))
+vis_x, vis_label = dataset[vis_idx]
+vis_x = vis_x.unsqueeze(0).to(DEVICE)  # 增加批次维度
+vis_label = vis_label.unsqueeze(0).to(DEVICE)
 
 # 加载归一化参数
 stats_path = os.path.join(NPY_DIR, "norm_stats.npz")

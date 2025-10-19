@@ -159,9 +159,9 @@ class DenoisingExperiment:
 
         early_stopping = EarlyStopping(
             accelerator=self.accelerator,
-            patience=10,
+            patience=1000,
             delta=0.0,
-            save_mode=True,
+            save_mode=False,
             save_path=os.path.join(self.args.ckpt_dir, f"{self.args.model}_best.pth"),
             save_interval=1,
             verbose=True,
@@ -214,7 +214,7 @@ class DenoisingExperiment:
                     "⏹ Early stopping triggered — stopping training on all devices."
                 )
                 break
-        # early_stopping._save_checkpoint(vali_loss, model)
+        early_stopping._save_checkpoint(vali_loss, model)
 
     def validate(self, model, valid_dataloader, valid_criterion):
         total_loss = []
