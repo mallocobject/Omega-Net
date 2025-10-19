@@ -15,7 +15,7 @@ from layers import StackedFC
 class SFSDSA(nn.Module):
     def __init__(
         self,
-        in_features=400,
+        in_features=900,
         hidden_features=[256, 128, 64],
         use_bn=False,
         stddev=None,
@@ -57,8 +57,8 @@ class SFSDSA(nn.Module):
 
 
 if __name__ == "__main__":
-    x = torch.randn(100, 400)  # (B, L)
-    model = SFSDSA(in_features=400)
+    x = torch.randn(100, 900)  # (B, L)
+    model = SFSDSA(in_features=900)
     output = model(x)
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {output.shape}")

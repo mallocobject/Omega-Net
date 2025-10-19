@@ -76,7 +76,7 @@ def get_args():
     parser.add_argument(
         "--time_steps",
         type=int,
-        default=1000,
+        default=200,
         help="输入信号的时间步长（仅对 TEMSGnet 有效）",
     )
     parser.add_argument(

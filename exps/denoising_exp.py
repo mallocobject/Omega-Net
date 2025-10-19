@@ -48,12 +48,41 @@ class DenoisingExperiment:
         return model
 
     def _get_dataloader(self, split: str):
-        dataset = TEMDataset(data_dir=self.args.data_dir, split=split)
+        stats_path = os.path.join(self.args.data_dir, "norm_stats.npz")
+
+        if split == "train":
+            dataset = TEMDataset(
+                data_dir=self.args.data_dir,
+                split="train",
+                normalize=True,
+                method="zscore",
+            )
+            # 保存统计信息
+            np.savez(stats_path, mean=dataset.mean, std=dataset.std)
+
+        elif split in ["valid", "test"]:
+            # 从文件加载
+            if not os.path.exists(stats_path):
+                raise FileNotFoundError("Missing normalization stats file.")
+            stats = np.load(stats_path)
+            mean = stats["mean"]
+            std = stats["std"]
+            dataset = TEMDataset(
+                data_dir=self.args.data_dir,
+                split=split,
+                normalize=True,
+                method="zscore",
+                mean=mean,
+                std=std,
+            )
+        else:
+            raise ValueError(f"Unknown split type: {split}")
+
         dataloader = DataLoader(
             dataset,
             batch_size=self.args.batch_size,
             shuffle=(split == "train"),
-            num_workers=2,
+            num_workers=4,
         )
         return dataloader
 
@@ -112,15 +141,19 @@ class DenoisingExperiment:
 
         early_stopping = EarlyStopping(
             accelerator=self.accelerator,
-            patience=15,
+            patience=10,
             delta=0.0,
-            save_mode=False,
+            save_mode=True,
             save_path=os.path.join(self.args.ckpt_dir, f"{self.args.model}_best.pth"),
-            save_interval=10,
+            save_interval=1,
             verbose=True,
         )
 
-        vali_loss = 0.0  # 保存最后一次验证集损失
+        self.accelerator.print("🚀 Starting training...")
+        self.accelerator.print(f"Model: {self.args.model}")
+        self.accelerator.print(f"Accelerator state: {self.accelerator.state}")
+
+        # vali_loss = 0.0  # 保存最后一次验证集损失
         for epoch in range(self.args.epochs):
             start_time = time.time()
             model.train()
@@ -163,8 +196,7 @@ class DenoisingExperiment:
                     "⏹ Early stopping triggered — stopping training on all devices."
                 )
                 break
-
-        early_stopping._save_checkpoint(vali_loss, model)
+        # early_stopping._save_checkpoint(vali_loss, model)
 
     def validate(self, model, valid_dataloader, valid_criterion):
         total_loss = []

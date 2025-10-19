@@ -5,7 +5,7 @@ from tqdm.rich import tqdm  # 导入 tqdm 库
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils import get_simple_tem_signal
+from utils import get_simple_tem_signal_v2
 
 
 def save_data_to_npy(num_samples: int, file_name: str):
@@ -26,7 +26,7 @@ def save_data_to_npy(num_samples: int, file_name: str):
         unit="sample",
         colour="magenta",
     ):
-        _, response, response_with_noise = get_simple_tem_signal()
+        _, response, response_with_noise = get_simple_tem_signal_v2()
         signal_data = {
             "response": response,
             "response_with_noise": response_with_noise,
@@ -43,6 +43,6 @@ def save_data_to_npy(num_samples: int, file_name: str):
 
 if __name__ == "__main__":
     np.random.seed(None)  # 确保每次运行生成不同的数据
-    save_data_to_npy(num_samples=8000, file_name="train_data")
-    save_data_to_npy(num_samples=1000, file_name="valid_data")
-    save_data_to_npy(num_samples=1000, file_name="test_data")
+    save_data_to_npy(num_samples=80000, file_name="train_data")
+    save_data_to_npy(num_samples=10000, file_name="valid_data")
+    save_data_to_npy(num_samples=10000, file_name="test_data")

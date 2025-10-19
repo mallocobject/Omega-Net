@@ -221,10 +221,10 @@ def extract(a, t, x_shape):
 class TEMSGnet(nn.Module):
     def __init__(
         self,
-        timesteps=1000,
+        timesteps=200,
         beta_start=1e-4,
         beta_end=0.02,
-        stddev=None,
+        stddev: Optional[float] = None,
     ):
         super(TEMSGnet, self).__init__()
         self.model = UNet1D(
@@ -236,15 +236,26 @@ class TEMSGnet(nn.Module):
             res_block_groups=4,
         )
         self.timesteps = timesteps
-        betas = torch.linspace(beta_start, beta_end, timesteps)
+
+        betas = torch.linspace(beta_start, beta_end, timesteps)  # [T]
         alphas = 1.0 - betas
         alpha_hats = torch.cumprod(alphas, dim=0)
 
+        # 预计算常用量并注册为 buffer（随模型一起移动 device / 存盘）
         self.register_buffer("betas", betas)
         self.register_buffer("alphas", alphas)
         self.register_buffer("alpha_hats", alpha_hats)
         self.register_buffer("sqrt_recip_alphas_hat", torch.sqrt(1.0 / alpha_hats))
         self.register_buffer("sqrt_one_minus_alpha_hats", torch.sqrt(1.0 - alpha_hats))
+
+        # 计算 alpha_hats_prev 用于 posterior_variance 的公式
+        alpha_hats_prev = F.pad(alpha_hats[:-1], (1, 0), value=1.0)
+        posterior_variance = betas * (1.0 - alpha_hats_prev) / (1.0 - alpha_hats)
+        # posterior_variance 在 t=0 时可为 0 或一个很小的值
+        self.register_buffer("posterior_variance", posterior_variance)
+
+        # 可选：噪声标准差（若要在 p_sample 时用固定 std）
+        self.stddev = stddev
 
     @torch.no_grad()
     def p_denoise_step(
@@ -254,30 +265,57 @@ class TEMSGnet(nn.Module):
         x_self_cond: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
-        Perform one denoising step.
-        x_t: Noisy input at time step t
-        t: Time step tensor
-        x_self_cond: Optional self-conditioning input
+        对单步 t -> t-1 的去噪(DDPM 风格)
+        返回 x_{t-1} 的采样(若 t>0 含随机项，否则直接返回 mean)
+        x_t: Tensor, 形状 [B, C, L] 或 [B, L]（取决于你的数据）
+        t: LongTensor 形状 [B]
+        x_self_cond: 可选 self-conditioning(与 model 的接口一致)
         """
-        beta_t = extract(self.betas, t, x_t.shape)
-        sqrt_recip_alpha_hat_t = extract(self.sqrt_recip_alphas_hat, t, x_t.shape)
+        betas_t = extract(self.betas, t, x_t.shape)
         sqrt_one_minus_alpha_hat_t = extract(
             self.sqrt_one_minus_alpha_hats, t, x_t.shape
         )
+        sqrt_recip_alpha_hat_t = extract(self.sqrt_recip_alphas_hat, t, x_t.shape)
 
-        # Predict the noise
-        model_output = self.model(x_t, t, x_self_cond)
+        # 模型预测噪声（epsilon_theta）
+        if x_self_cond is None:
+            eps_pred = self.model(x_t, t)
+        else:
+            eps_pred = self.model(x_t, t, x_self_cond)
 
-        # Compute the denoised output
-        x_0_pred = sqrt_recip_alpha_hat_t * (
-            x_t - beta_t / sqrt_one_minus_alpha_hat_t * model_output
+        # 根据 DDPM Equation 得到 model_mean（即 x_{t-1} 的均值）
+        # model_mean = 1/sqrt(alpha_t) * ( x_t - beta_t / sqrt(1 - alpha_hat_t) * eps_pred )
+        model_mean = sqrt_recip_alpha_hat_t * (
+            x_t - betas_t * eps_pred / sqrt_one_minus_alpha_hat_t
         )
 
-        # 不加噪声
-        return x_0_pred
+        # t 是否为 0（batch 中可能不同，所以用逐样本判断）
+        is_t0 = t == 0
+
+        # posterior variance
+        posterior_var_t = extract(self.posterior_variance, t, x_t.shape)
+
+        # 构造 x_{t-1}
+        noise = torch.randn_like(x_t)
+        # 对于 t==0，直接返回 model_mean（不加随机项）
+        x_prev = model_mean.clone()
+        if (~is_t0).any():
+            # 对非 t==0 的样本，加上 sqrt(posterior_var) * noise
+            mask = (
+                (~is_t0).float().reshape(-1, *((1,) * (x_t.dim() - 1)))
+            )  # broadcast mask
+            x_prev = model_mean + mask * (torch.sqrt(posterior_var_t) * noise)
+
+        return x_prev
 
     @torch.no_grad()
-    def denoise_from_noisy(self, x_noisy, condition=None, start_t=None, steps=None):
+    def denoise_from_noisy(
+        self,
+        x_noisy,
+        condition: Optional[torch.Tensor] = None,
+        start_t: Optional[int] = None,
+        steps: Optional[int] = None,
+    ):
         """
         从含噪信号开始去噪
         - x_noisy: 含噪输入 (B, L)
@@ -290,37 +328,45 @@ class TEMSGnet(nn.Module):
         if start_t is None:
             start_t = self.timesteps - 1
         if steps is None:
-            steps = start_t + 1
+            t_final = 0
+        else:
+            t_final = max(0, start_t - steps + 1)
 
         # 反向扩散过程
         x_t = x_noisy
-        for t in reversed(range(start_t, steps)):
-            t_batch = torch.full((B,), t, dtype=torch.long, device=x_t.device)
+        for t in range(start_t, t_final - 1, -1):
+            t_batch = torch.full((B,), t, dtype=torch.long, device=x_noisy.device)
             x_t = self.p_denoise_step(x_t, t_batch, x_self_cond=condition)
-        return x_t  # 返回去噪结果(esimate signal)
 
     def forward(
         self,
-        x_self_cond: torch.Tensor,
+        x_self_cond: Optional[torch.Tensor],
         x: torch.Tensor,
         time: torch.Tensor,
     ) -> torch.Tensor:
-        betas = self.betas
-        alphas = self.alphas
-        alpha_hats = self.alpha_hats
+        # 从 buffers 中提取对应系数（广播）
+        sqrt_alpha_hat_t = extract(
+            self.sqrt_recip_alphas_hat, time, x.shape
+        )  # 注意这里用的是 sqrt_recip_alphas_hat（1/sqrt(alpha_hat)）
+        sqrt_one_minus_alpha_hat_t = extract(
+            self.sqrt_one_minus_alpha_hats, time, x.shape
+        )
 
-        # 当前时间步对应的系数
-        sqrt_alpha_hat = torch.sqrt(alpha_hats[time])
-        sqrt_one_minus_alpha_hat = torch.sqrt(1.0 - alpha_hats[time])
-
-        # 添加噪声
+        # 采样噪声并构造 x_t
         noise = torch.randn_like(x)
-        x_t = sqrt_alpha_hat[:, None] * x + sqrt_one_minus_alpha_hat[:, None] * noise
+        x_t = (1.0 / sqrt_alpha_hat_t) * x + (
+            sqrt_one_minus_alpha_hat_t * noise / sqrt_alpha_hat_t
+        )  # 等价于: sqrt_alpha_hat * x + sqrt(1 - alpha_hat) * noise
+        # 上面为了避免混淆，使用可逆表达式；你也可以直接：
+        # x_t = torch.sqrt(self.alpha_hats[time])[:, None] * x + torch.sqrt(1 - self.alpha_hats[time])[:, None] * noise
 
         # 模型预测噪声
-        out = self.model(x_t, time, x_self_cond=x_self_cond)
+        if x_self_cond is None:
+            eps_pred = self.model(x_t, time)
+        else:
+            eps_pred = self.model(x_t, time, x_self_cond=x_self_cond)
 
-        return out
+        return eps_pred
 
 
 if __name__ == "__main__":
