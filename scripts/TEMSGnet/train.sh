@@ -2,7 +2,7 @@ accelerate launch --config_file ./config.yaml run.py \
     --mode train \
     --data_dir ./data/raw_data/ \
     --model temsgnet \
-    --epochs 200 \
+    --epochs 1000 \
     --batch_size 64 \
     --lr 1e-5 \
     --lr_decay 0.98 \

@@ -149,3 +149,4 @@ if __name__ == "__main__":
     from utils import plot
 
     time, response, response_with_noise = get_simple_tem_signal()
+    plot(time, response, response_with_noise)
