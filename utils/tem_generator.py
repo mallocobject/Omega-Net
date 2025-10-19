@@ -65,7 +65,10 @@ def get_simple_tem_signal_v2(
     Q1 = np.random.uniform(*Q1)
     Q2 = np.random.uniform(*Q2)
     B = np.random.uniform(*B)
-    response = Q1 * np.exp(-Q2 * time) + B  # 双指数衰减模型
+    # Q1 = 1300
+    # Q2 = 2.5
+    # B = 4.0
+    response = Q1 * np.exp(-Q2 * time) + B  # 指数衰减模型
 
     response_with_noise = add_noise_snr(response, snr_db)
 
@@ -177,7 +180,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils import plot
 
-    time, response, response_with_noise = get_simple_tem_signal()
+    time, response, response_with_noise = get_simple_tem_signal_v2()
     plot(
         time,
         response,
