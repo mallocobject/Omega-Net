@@ -57,16 +57,34 @@ class DenoisingExperiment:
                 normalize=True,
                 method="zscore",
             )
-            # 保存统计信息
-            np.savez(stats_path, mean=dataset.mean, std=dataset.std)
+            # 只让主进程保存
+            if self.accelerator.is_main_process:
+                np.savez(stats_path, mean=dataset.mean, std=dataset.std)
+
+            mean, std = dataset.mean, dataset.std
 
         elif split in ["valid", "test"]:
-            # 从文件加载
-            if not os.path.exists(stats_path):
-                raise FileNotFoundError("Missing normalization stats file.")
-            stats = np.load(stats_path)
-            mean = stats["mean"]
-            std = stats["std"]
+            # 先让主进程加载 stats
+            if self.accelerator.is_main_process:
+                stats = np.load(stats_path)
+                mean, std = stats["mean"], stats["std"]
+            else:
+                mean = np.zeros(1, dtype=np.float32)
+                std = np.zeros(1, dtype=np.float32)
+
+            # 将 mean/std 广播到所有进程
+            if torch.distributed.is_initialized():
+                mean_tensor = torch.tensor(
+                    mean, device=self.accelerator.device, dtype=torch.float32
+                )
+                std_tensor = torch.tensor(
+                    std, device=self.accelerator.device, dtype=torch.float32
+                )
+                dist.broadcast(mean_tensor, src=0)
+                dist.broadcast(std_tensor, src=0)
+                mean = mean_tensor.clone().detach().cpu().numpy()
+                std = std_tensor.clone().detach().cpu().numpy()
+
             dataset = TEMDataset(
                 data_dir=self.args.data_dir,
                 split=split,

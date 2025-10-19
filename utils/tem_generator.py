@@ -59,9 +59,9 @@ def get_simple_tem_signal_v2(
     Q1, Q2, B: 控制双指数衰减模型的参数
     snr_db: 20~25dB 信噪比
     return:
-    time: 0~900ms
+    time: 0~400ms
     """
-    time = np.linspace(0, 9, 900)  # 时间采样点
+    time = np.linspace(0, 4, 400)  # 时间采样点
     Q1 = np.random.uniform(*Q1)
     Q2 = np.random.uniform(*Q2)
     B = np.random.uniform(*B)

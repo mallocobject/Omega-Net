@@ -3,6 +3,6 @@ accelerate launch --config_file ./config.yaml run.py \
     --data_dir ./data/raw_data/ \
     --model temsgnet \
     --batch_size 64 \
-    --time_steps 100 \
+    --time_steps 200 \
     --load_checkpoint ./checkpoints/temsgnet_best.pth \
-    --start_step 500 \
+    --start_step 100 \

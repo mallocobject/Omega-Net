@@ -71,7 +71,17 @@ class UNet1D(nn.Module):
                             input_channels, layers.AttenBlock(input_channels)
                         )
                     ),
-                    layers.DownSample(input_channels, output_channels),
+                    (
+                        layers.DownSample(input_channels, output_channels)
+                        if i < num_levels - 1 - 1
+                        else nn.Conv1d(
+                            input_channels,
+                            output_channels,
+                            kernel_size=3,
+                            stride=2,
+                            padding=1,
+                        )
+                    ),
                 ]
             )
 
@@ -129,7 +139,17 @@ class UNet1D(nn.Module):
                             input_channels, layers.AttenBlock(input_channels)
                         )
                     ),
-                    layers.UpSample(input_channels, output_channels),
+                    (
+                        layers.UpSample(input_channels, output_channels)
+                        if i > 0
+                        else nn.ConvTranspose1d(
+                            input_channels,
+                            output_channels,
+                            kernel_size=4,
+                            stride=2,
+                            padding=1,
+                        )
+                    ),
                 ]
             )
             self.decoders.append(decoder)
@@ -337,6 +357,8 @@ class TEMSGnet(nn.Module):
         for t in range(start_t, t_final - 1, -1):
             t_batch = torch.full((B,), t, dtype=torch.long, device=x_noisy.device)
             x_t = self.p_denoise_step(x_t, t_batch, x_self_cond=condition)
+
+        return x_t
 
     def forward(
         self,

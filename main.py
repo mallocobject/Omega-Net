@@ -50,18 +50,26 @@ criterion = nn.MSELoss()
 vis_x, vis_label = next(iter(dataloader))  # 只取第一批数据
 vis_x, vis_label = vis_x[0:1].to(DEVICE), vis_label[0:1].to(DEVICE)
 
+# 加载归一化参数
+stats_path = os.path.join(NPY_DIR, "norm_stats.npz")
+stats = np.load(stats_path)
+mean = stats["mean"]
+std = stats["std"]
+
+
 with torch.no_grad():
 
     if model_name != "temsgnet":
         estimate_noise = model(vis_x)
         denoised_signal = vis_x - estimate_noise
     else:
-        estimate_noise = model.denoise_from_noisy(vis_x, vis_x, 800)
+        estimate_noise = model.denoise_from_noisy(vis_x, vis_x, 100)
         denoised_signal = estimate_noise  # TEMSGnet 直接输出去噪结果
 
-    noisy_signal = vis_x[0].cpu().numpy()
-    clean_signal = vis_label[0].cpu().numpy()
-    denoised_signal = denoised_signal[0].cpu().numpy()
+    # 转回 CPU 并反标准化
+    noisy_signal = (vis_x[0].cpu().numpy() * std) + mean
+    clean_signal = (vis_label[0].cpu().numpy() * std) + mean
+    denoised_signal = (denoised_signal[0].cpu().numpy() * std) + mean
 
     t = np.linspace(0, 400, 400)  # 时间轴（ms）
 
@@ -71,6 +79,6 @@ with torch.no_grad():
         noisy_signal,
         denoised_signal,
         x_axis="time (ms)",
-        y_axis="B (nT)",
+        y_axis="Amp (mV)",
         title=f"{model_name} Denoising Result",
     )
