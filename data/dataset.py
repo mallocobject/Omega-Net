@@ -28,6 +28,7 @@ class TEMDataset(Dataset):
         self,
         data_dir: str,
         split: str = "train",
+        stats_file: str = "norm_stats.npy",
     ):
         """
         Args:
@@ -63,10 +64,10 @@ class TEMDataset(Dataset):
             min = self.noisy_signal.min()
             max = self.noisy_signal.max()
             if split == "train":
-                np.save(os.path.join(data_dir, "norm_stat.npy"), np.array([min, max]))
+                np.save(os.path.join(data_dir, stats_file), np.array([min, max]))
         elif split == "test":
-            min = np.load(os.path.join(data_dir, "norm_stat.npy"))[0]
-            max = np.load(os.path.join(data_dir, "norm_stat.npy"))[1]
+            min = np.load(os.path.join(data_dir, stats_file))[0]
+            max = np.load(os.path.join(data_dir, stats_file))[1]
 
         else:
             raise ValueError("split must be 'train' or 'valid' or 'test'")

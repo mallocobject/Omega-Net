@@ -20,16 +20,10 @@ NPY_DIR = "data/raw_data"
 BATCH_SIZE = 20
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-stats = np.load(os.path.join(NPY_DIR, "norm_stats.npz"))
-mean, std = stats["mean"], stats["std"]
 
 dataset = dataset.TEMDataset(
     NPY_DIR,
     split="test",
-    normalize=True,
-    method="zscore",
-    mean=mean,
-    std=std,
 )
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
