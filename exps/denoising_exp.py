@@ -48,54 +48,10 @@ class DenoisingExperiment:
         return model
 
     def _get_dataloader(self, split: str):
-        stats_path = os.path.join(self.args.data_dir, "norm_stats.npz")
-
-        if split == "train":
-            dataset = TEMDataset(
-                data_dir=self.args.data_dir,
-                split="train",
-                normalize=True,
-                method="zscore",
-            )
-            # 只让主进程保存
-            if self.accelerator.is_main_process:
-                np.savez(stats_path, mean=dataset.mean, std=dataset.std)
-
-            mean, std = dataset.mean, dataset.std
-
-        elif split in ["valid", "test"]:
-            # 先让主进程加载 stats
-            if self.accelerator.is_main_process:
-                stats = np.load(stats_path)
-                mean, std = stats["mean"], stats["std"]
-            else:
-                mean = np.zeros(1, dtype=np.float32)
-                std = np.zeros(1, dtype=np.float32)
-
-            # 将 mean/std 广播到所有进程
-            if torch.distributed.is_initialized():
-                mean_tensor = torch.tensor(
-                    mean, device=self.accelerator.device, dtype=torch.float32
-                )
-                std_tensor = torch.tensor(
-                    std, device=self.accelerator.device, dtype=torch.float32
-                )
-                dist.broadcast(mean_tensor, src=0)
-                dist.broadcast(std_tensor, src=0)
-                mean = mean_tensor.clone().detach().cpu().numpy()
-                std = std_tensor.clone().detach().cpu().numpy()
-
-            dataset = TEMDataset(
-                data_dir=self.args.data_dir,
-                split=split,
-                normalize=True,
-                method="zscore",
-                mean=mean,
-                std=std,
-            )
-        else:
-            raise ValueError(f"Unknown split type: {split}")
-
+        dataset = TEMDataset(
+            data_dir=self.args.data_dir,
+            split=split,
+        )
         dataloader = DataLoader(
             dataset,
             batch_size=self.args.batch_size,

@@ -28,20 +28,12 @@ class TEMDataset(Dataset):
         self,
         data_dir: str,
         split: str = "train",
-        normalize: bool = True,
-        method: str = "zscore",
-        mean: float = None,
-        std: float = None,
-        x_min: float = None,
-        x_max: float = None,
     ):
         """
         Args:
             data_dir: 数据所在目录
             split: 'train' | 'valid' | 'test'
-            normalize: 是否进行标准化
-            method: 'zscore' 或 'minmax'
-            mean/std/x_min/x_max: 用于验证/测试集的标准化参数
+            对数归一化
         """
         if split not in ["train", "valid", "test"]:
             raise ValueError("split must be 'train' or 'valid' or 'test'")
@@ -63,49 +55,24 @@ class TEMDataset(Dataset):
         )
         self.clean_signal = np.array([item["response"] for item in self.signal_data])
 
-        # 归一化选项
-        self.normalize = normalize
-        self.method = method
+        # 对数归一化
+        self.noisy_signal = np.log1p(self.noisy_signal)
+        self.clean_signal = np.log1p(self.clean_signal)
 
-        # ====== 仅在 train 阶段计算参数 ======
-        if self.normalize and split == "train":
-            if method == "zscore":
-                self.mean = self.clean_signal.mean()
-                self.std = self.clean_signal.std()
-                self.x_min = self.x_max = None
-            elif method == "minmax":
-                self.x_min = self.clean_signal.min()
-                self.x_max = self.clean_signal.max()
-                self.mean = self.std = None
-        # ====== valid/test 直接使用传入的参数 ======
-        elif self.normalize:
-            self.mean = mean
-            self.std = std
-            self.x_min = x_min
-            self.x_max = x_max
+        if split in ["train", "valid"]:
+            min = self.noisy_signal.min()
+            max = self.noisy_signal.max()
+            if split == "train":
+                np.save(os.path.join(data_dir, "norm_stat.npy"), np.array([min, max]))
+        elif split == "test":
+            min = np.load(os.path.join(data_dir, "norm_stat.npy"))[0]
+            max = np.load(os.path.join(data_dir, "norm_stat.npy"))[1]
 
-        # ====== 统一标准化 ======
-        if self.normalize:
-            if method == "zscore":
-                self.noisy_signal = (self.noisy_signal - self.mean) / (self.std + 1e-8)
-                self.clean_signal = (self.clean_signal - self.mean) / (self.std + 1e-8)
-            elif method == "minmax":
-                self.noisy_signal = (
-                    2
-                    * (
-                        (self.noisy_signal - self.x_min)
-                        / (self.x_max - self.x_min + 1e-8)
-                    )
-                    - 1
-                )
-                self.clean_signal = (
-                    2
-                    * (
-                        (self.clean_signal - self.x_min)
-                        / (self.x_max - self.x_min + 1e-8)
-                    )
-                    - 1
-                )
+        else:
+            raise ValueError("split must be 'train' or 'valid' or 'test'")
+
+        self.noisy_signal = (self.noisy_signal - min) / (max - min)
+        self.clean_signal = (self.clean_signal - min) / (max - min)
 
     def __len__(self):
         return len(self.signal_data)
@@ -115,18 +82,22 @@ class TEMDataset(Dataset):
         clean_signal = torch.tensor(self.clean_signal[idx], dtype=torch.float32)
         return noisy_signal, clean_signal
 
-    # ===== 静态方法：反标准化 =====
     @staticmethod
-    def denormalize_signal(x_norm: torch.Tensor, params: dict, method: str = "zscore"):
-        """反标准化（从标准化后信号恢复原始尺度）"""
-        if method == "zscore":
-            return x_norm * params["std"] + params["mean"]
-        elif method == "minmax":
-            return (x_norm + 1) / 2 * (params["x_max"] - params["x_min"]) + params[
-                "x_min"
-            ]
-        else:
-            raise ValueError("method must be 'zscore' or 'minmax'")
+    def denormalize(
+        signal: torch.Tensor, data_dir: str = "data/raw_data"
+    ) -> torch.Tensor:
+        """
+        反归一化
+        Args:
+            signal: 归一化后的信号
+            data_dir: 数据目录
+        Returns:
+            反归一化后的信号
+        """
+        min, max = np.load(os.path.join(data_dir, "norm_stat.npy"))
+        signal = signal * (max - min) + min
+        signal = torch.expm1(signal)
+        return signal
 
 
 # class TEMDDateset(Dataset):

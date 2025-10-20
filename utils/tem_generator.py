@@ -22,7 +22,7 @@ def add_noise_snr(signal: np.ndarray, snr_db: float):
 def get_simple_tem_signal(
     noise_stddev: float = 200,
     k1: tuple = (5e4, 12e4),
-    k2: tuple = (0.4, 9.4),
+    k2: tuple = (10, 40),
     b: tuple = (1500, 2000),
 ) -> tuple[np.ndarray, np.ndarray]:
     """
