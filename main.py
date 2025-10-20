@@ -20,6 +20,10 @@ NPY_DIR = "data/raw_data"
 BATCH_SIZE = 20
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+dataset = TEMDataset(
+    NPY_DIR,
+    split="train",
+)
 
 dataset = TEMDataset(
     NPY_DIR,
@@ -87,25 +91,9 @@ with torch.no_grad():
     plot(
         t,
         clean_signal,
-        noisy_signal,
         ori_sig,
+        denoised_signal,
         x_axis="time (ms)",
         y_axis="Amp (mV)",
         title=f"{model_name} Denoising Result",
     )
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-y = np.linspace(0, 10000, 1000)
-y_log = np.log1p(y)
-y_min, y_max = y_log.min(), y_log.max()
-y_norm = (y_log - y_min) / (y_max - y_min)
-
-y_log_rec = y_norm * (y_max - y_min) + y_min
-y_rec = np.expm1(y_log_rec)
-
-plt.plot(y, y_rec, label="Recovered")
-plt.plot(y, y, "--", label="Original")
-plt.legend()
-plt.show()

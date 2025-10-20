@@ -45,11 +45,10 @@ class SFSDSA(nn.Module):
     ) -> torch.Tensor:
 
         # x: (B, L)
-        x = (
-            x + torch.randn_like(x) * self.stddev
-            if self.stddev
-            else torch.zeros_like(x)
-        )
+        # if self.stddev:
+        #     noise = torch.randn_like(x) * self.stddev
+        #     x = x + noise
+
         encoded = self.encoder(x)  # (B, out_features)
         out = self.decoder(encoded)  # (B, in_features)
 

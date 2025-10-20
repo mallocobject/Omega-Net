@@ -57,17 +57,18 @@ class TEMDataset(Dataset):
         self.clean_signal = np.array([item["response"] for item in self.signal_data])
 
         # 对数归一化
-        self.noisy_signal = np.sign(self.noisy_signal) * np.log1p(
+        self.noisy_signal = np.sign(self.noisy_signal) * np.log(
             np.abs(self.noisy_signal)
         )
-        self.clean_signal = np.log1p(self.clean_signal)
+        self.clean_signal = np.sign(self.clean_signal) * np.log(
+            np.abs(self.clean_signal)
+        )
 
-        if split in ["train", "valid"]:
+        if split == "train":
             min = self.noisy_signal.min()
             max = self.noisy_signal.max()
-            if split == "train":
-                np.save(os.path.join(data_dir, stats_file), np.array([min, max]))
-        elif split == "test":
+            np.save(os.path.join(data_dir, stats_file), np.array([min, max]))
+        elif split in ["test", "valid"]:
             min = np.load(os.path.join(data_dir, stats_file))[0]
             max = np.load(os.path.join(data_dir, stats_file))[1]
 
@@ -108,7 +109,7 @@ class TEMDataset(Dataset):
         max_ = torch.tensor(max_, device=signal.device, dtype=signal.dtype)
 
         signal = signal * (max_ - min_) + min_
-        signal = torch.sign(signal) * torch.expm1(torch.abs(signal))
+        signal = torch.sign(signal) * torch.exp(torch.abs(signal))
         return signal
 
 
