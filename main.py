@@ -11,7 +11,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-from data import dataset
+from data import TEMDataset
 from models import TEMDnet, SFSDSA, TEMSGnet
 from utils import plot
 
@@ -21,7 +21,7 @@ BATCH_SIZE = 20
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-dataset = dataset.TEMDataset(
+dataset = TEMDataset(
     NPY_DIR,
     split="test",
 )
@@ -78,9 +78,9 @@ with torch.no_grad():
         denoised_signal = estimate_noise  # TEMSGnet 直接输出去噪结果
 
     # 转回 CPU 并反标准化
-    noisy_signal = (vis_x[0].cpu().numpy() * (max - min)) + min
-    clean_signal = (vis_label[0].cpu().numpy() * (max - min)) + min
-    denoised_signal = (denoised_signal[0].cpu().numpy() * (max - min)) + min
+    noisy_signal = TEMDataset.denormalize(vis_x[0]).cpu().numpy()
+    clean_signal = TEMDataset.denormalize(vis_label[0]).cpu().numpy()
+    denoised_signal = TEMDataset.denormalize(denoised_signal[0]).cpu().numpy()
 
     t = np.linspace(0, 400, 400)  # 时间轴（ms）
 
@@ -93,3 +93,19 @@ with torch.no_grad():
         y_axis="Amp (mV)",
         title=f"{model_name} Denoising Result",
     )
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+y = np.linspace(0, 10000, 1000)
+y_log = np.log1p(y)
+y_min, y_max = y_log.min(), y_log.max()
+y_norm = (y_log - y_min) / (y_max - y_min)
+
+y_log_rec = y_norm * (y_max - y_min) + y_min
+y_rec = np.expm1(y_log_rec)
+
+plt.plot(y, y_rec, label="Recovered")
+plt.plot(y, y, "--", label="Original")
+plt.legend()
+plt.show()

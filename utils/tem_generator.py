@@ -20,7 +20,7 @@ def add_noise_snr(signal: np.ndarray, snr_db: float):
 
 # https://ieeexplore.ieee.org/document/9698089
 def get_simple_tem_signal(
-    noise_stddev: float = 200,
+    noise_stddev: float = 500,
     k1: tuple = (5e4, 12e4),
     k2: tuple = (10, 40),
     b: tuple = (1500, 2000),
@@ -127,7 +127,7 @@ def get_tem_signal(
 
     # 时间采样
     offset = 10
-    time = np.linspace(1e-3, 0.4, 400 + offset)
+    time = np.logspace(-5, -1, 400)  # 10微秒到100毫秒
 
     # 计算源强度（假设电流为10安，回线面积为 300m * 250m）
     strength = 10.0 * coil_length * coil_width  # 10安 × 回线面积
@@ -180,7 +180,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils import plot
 
-    time, response, response_with_noise = get_simple_tem_signal_v2()
+    time, response, response_with_noise = get_simple_tem_signal()
     plot(
         time,
         response,

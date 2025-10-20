@@ -57,7 +57,9 @@ class TEMDataset(Dataset):
         self.clean_signal = np.array([item["response"] for item in self.signal_data])
 
         # 对数归一化
-        self.noisy_signal = np.log1p(self.noisy_signal)
+        self.noisy_signal = np.sign(self.noisy_signal) * np.log1p(
+            np.abs(self.noisy_signal)
+        )
         self.clean_signal = np.log1p(self.clean_signal)
 
         if split in ["train", "valid"]:
@@ -85,7 +87,9 @@ class TEMDataset(Dataset):
 
     @staticmethod
     def denormalize(
-        signal: torch.Tensor, data_dir: str = "data/raw_data"
+        signal: torch.Tensor,
+        data_dir: str = "data/raw_data",
+        stats_file="norm_stats.npy",
     ) -> torch.Tensor:
         """
         反归一化
@@ -95,9 +99,16 @@ class TEMDataset(Dataset):
         Returns:
             反归一化后的信号
         """
-        min, max = np.load(os.path.join(data_dir, "norm_stat.npy"))
-        signal = signal * (max - min) + min
-        signal = torch.expm1(signal)
+        import numpy as np
+        import torch, os
+
+        min_, max_ = np.load(os.path.join(data_dir, stats_file))
+        # 转为 tensor 并与输入对齐设备与类型
+        min_ = torch.tensor(min_, device=signal.device, dtype=signal.dtype)
+        max_ = torch.tensor(max_, device=signal.device, dtype=signal.dtype)
+
+        signal = signal * (max_ - min_) + min_
+        signal = torch.sign(signal) * torch.expm1(torch.abs(signal))
         return signal
 
 
