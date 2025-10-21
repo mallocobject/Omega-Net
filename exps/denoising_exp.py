@@ -106,7 +106,6 @@ class DenoisingExperiment:
         model = self._build_model()
 
         train_criterion = self._select_criterion()
-        valid_criterion = self._select_criterion()
 
         optimizer = self._select_optimizer(model)
         scheduler = self._select_scheduler(optimizer)
@@ -119,9 +118,9 @@ class DenoisingExperiment:
 
         early_stopping = EarlyStopping(
             accelerator=self.accelerator,
-            patience=1000,
+            patience=10,
             delta=0.0,
-            save_mode=False,
+            save_mode=True,
             save_path=os.path.join(self.args.ckpt_dir, f"{self.args.model}_best.pth"),
             save_interval=1,
             verbose=True,
@@ -162,7 +161,7 @@ class DenoisingExperiment:
 
             scheduler.step()
 
-            vali_loss = self.validate(model, valid_dataloader, valid_criterion)
+            vali_loss = self.validate(model, valid_dataloader)
             early_stopping(vali_loss, model, epoch)
             end_time = time.time()
             self.accelerator.print(
@@ -174,9 +173,9 @@ class DenoisingExperiment:
                     "⏹ Early stopping triggered — stopping training on all devices."
                 )
                 break
-        early_stopping._save_checkpoint(vali_loss, model)
+        # early_stopping._save_checkpoint(vali_loss, model)
 
-    def validate(self, model, valid_dataloader, valid_criterion):
+    def validate(self, model, valid_dataloader):
         total_loss = []
         with torch.no_grad():
             model.eval()
@@ -192,7 +191,12 @@ class DenoisingExperiment:
                 )
 
                 outputs = model(x, label, time_emb)
-                loss = valid_criterion(x.detach(), outputs, label)
+                if self.args.model == "temdemucs":
+                    loss = F.mse_loss(outputs, label)
+                elif self.args.model == "temdnet":
+                    loss = F.mse_loss(x - outputs, label)
+                else:
+                    raise ValueError(f"Unknown model type: {self.args.model}")
                 total_loss.append(loss.item())
 
         vali_loss = np.average(total_loss)
@@ -227,14 +231,14 @@ class DenoisingExperiment:
                 x, label = x.to(self.accelerator.device), label.to(
                     self.accelerator.device
                 )
-                if self.args.model == "temsgnet":
-                    outputs = model.module.denoise_from_noisy(
-                        x, x, self.args.start_step
-                    )
+                    
+                outputs = model(x)
+                if self.args.model == "temdemucs":
                     loss = F.mse_loss(outputs, label)
+                elif self.args.model == "temdnet":
+                    loss = F.mse_loss(x - outputs, label)
                 else:
-                    outputs = model(x)
-                    loss = test_criterion(x, outputs, label)
+                    raise ValueError(f"Unknown model type: {self.args.model}")
                 total_loss.append(loss.item())
 
         test_loss = np.mean(total_loss)

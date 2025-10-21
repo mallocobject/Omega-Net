@@ -98,7 +98,7 @@ class TEMDemucs(nn.Module):
 
         self.lstm = BLSTM(chout, bid=not causal)
 
-    def forward(self, x: torch.Tensor, _=None,time_emb: Optional[torch.Tensor] = None):
+    def forward(self, x: torch.Tensor, __=None,time_emb: Optional[torch.Tensor] = None):
         if x.dim() == 2:
             x = x.unsqueeze(1)  # (B, 1, T)
 

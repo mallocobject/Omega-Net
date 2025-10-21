@@ -4,7 +4,7 @@ accelerate launch --config_file ./config.yaml run.py \
     --model temdemucs \
     --epochs 100 \
     --batch_size 64 \
-    --lr 1e-3 \
-    --lr_decay 0.98 \
+    --lr 3e-4 \
+    --lr_decay 0.99 \
     --lr_step 1 \
     --ckpt_dir ./checkpoints \

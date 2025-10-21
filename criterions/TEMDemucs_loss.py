@@ -22,5 +22,5 @@ class TEMDemucsLoss(nn.MSELoss):
         diff_out = outputs[:, 1:] - outputs[:, :-1]
         Lmono_out = F.relu(-diff_out).mean()
 
-        total_loss = mse_loss + Lmono_out
+        total_loss = mse_loss + 0.1 * Lmono_out
         return total_loss
