@@ -10,4 +10,4 @@ step4: bash {mode}.sh运行
 
 step5: main编写了predict示例，建议服务器训练完，在本机上绘制查看效果
 
-目前仅TEMDnet效果可以，SFSDSA训练效果很差，全力赶工TEMSGnet中...
+支持TEMDnet, SFSDSA, and TEMDemucs(Ours)
