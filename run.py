@@ -28,7 +28,7 @@ def get_args():
         "--model",
         type=str,
         default="temdnet",
-        choices=["temdnet", "sfsdsa", "temsgnet"],
+        choices=["temdnet", "sfsdsa", "temsgnet", "temdemucs"],
         help="选择使用的模型结构",
     )
     parser.add_argument(

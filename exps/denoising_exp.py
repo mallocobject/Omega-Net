@@ -19,10 +19,10 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models import TEMDnet, SFSDSA, TEMSGnet
+from models import TEMDnet, SFSDSA, TEMSGnet, TEMDemucs
 from data import TEMDataset
 from utils import EarlyStopping
-from criterions import SFSDSALoss, TEMDnetLoss, TEMSGnetLoss
+from criterions import SFSDSALoss, TEMDnetLoss, TEMSGnetLoss, TEMDemucsLoss
 
 
 class DenoisingExperiment:
@@ -43,6 +43,8 @@ class DenoisingExperiment:
             model = SFSDSA(stddev=self.args.stddev)
         elif self.args.model == "temsgnet":
             model = TEMSGnet(timesteps=self.args.time_steps, stddev=self.args.stddev)
+        elif self.args.model == "temdemucs":
+            model = TEMDemucs()
         else:
             raise ValueError(f"Unknown model type: {self.args.model}")
         return model
@@ -67,6 +69,8 @@ class DenoisingExperiment:
             criterion = TEMSGnetLoss()
         elif self.args.model == "sfsdsa":
             criterion = SFSDSALoss()
+        elif self.args.model == "temdemucs":
+            criterion = TEMDemucsLoss()
         else:
             raise ValueError(f"Unknown model type: {self.args.model}")
         return criterion

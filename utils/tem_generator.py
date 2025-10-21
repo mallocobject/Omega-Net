@@ -269,7 +269,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils import plot
 
-    time, clean, noisy = get_tem_signal_realistic()
+    time, clean, noisy = get_simple_tem_signal()
 
     print(len(time), len(clean), len(noisy))
 

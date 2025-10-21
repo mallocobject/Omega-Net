@@ -63,11 +63,6 @@ signal_data = np.load("data/raw_data/test_data.npy", allow_pickle=True)
 t = np.array([item["time"] for item in signal_data])[vis_idx]
 ori_sig = np.array([item["noisy"] for item in signal_data])[vis_idx]
 
-# 加载归一化参数
-stats_path = os.path.join(NPY_DIR, "norm_stats.npy")
-stats = np.load(stats_path)
-min, max = stats[0], stats[1]
-
 
 with torch.no_grad():
 
@@ -83,7 +78,6 @@ with torch.no_grad():
     clean_signal = vis_label[0].cpu().numpy()
     denoised_signal = denoised_signal[0].cpu().numpy()
 
-
     plot(
         t,
         clean_signal,
@@ -93,3 +87,4 @@ with torch.no_grad():
         y_axis="Amp (mV)",
         title=f"{model_name} Denoising Result",
     )
+    
