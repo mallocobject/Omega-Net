@@ -60,7 +60,8 @@ vis_x = vis_x.unsqueeze(0).to(DEVICE)  # 增加批次维度
 vis_label = vis_label.unsqueeze(0).to(DEVICE)
 
 signal_data = np.load("data/raw_data/test_data.npy", allow_pickle=True)
-ori_sig = np.array([item["response_with_noise"] for item in signal_data])[vis_idx]
+t = np.array([item["time"] for item in signal_data])[vis_idx]
+ori_sig = np.array([item["noisy"] for item in signal_data])[vis_idx]
 
 # 加载归一化参数
 stats_path = os.path.join(NPY_DIR, "norm_stats.npy")
@@ -82,7 +83,6 @@ with torch.no_grad():
     clean_signal = vis_label[0].cpu().numpy()
     denoised_signal = denoised_signal[0].cpu().numpy()
 
-    t = np.linspace(0, 400, 400)  # 时间轴（ms）
 
     plot(
         t,

@@ -1,7 +1,7 @@
 # python==3.10
-# pytorch==12.4
 
-numpy==2.2.6
+# torch==2.4.0+cu124  # conda install pytorch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 pytorch-cuda=12.4 -c pytorch -c nvidia
+
 matplotlib==3.10.6
 scipy==1.15.2
 pywavelets==1.8.0

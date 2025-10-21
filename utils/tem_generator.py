@@ -253,29 +253,12 @@ def get_tem_signal_realistic(
     # ====== 加噪声 ======
     response_noisy = add_noise_stddev(response, noise_stddev)
 
-    # ====== 加入脉冲噪声 ======
-    pulse_noise = np.zeros_like(response)
-    pulse_times = np.random.choice(len(time), size=num_impulse, replace=False)
-    pulse_magnitude = np.random.uniform(min_impulse, max_impulse, size=num_impulse)
-    for pt, mag in zip(pulse_times, pulse_magnitude):
-        pulse_noise[pt] = mag
-
-    response_with_impulse = response_noisy + pulse_noise
-
-    # ====== 加入慢漂移 ======
-    drift = np.cumsum(np.random.randn(len(time))) * np.std(response) * 1e-3
-    response_with_drift = response_with_impulse + drift
-
-    # ====== 加入 1/f 噪声 ======
-    response_realistic = add_colored_noise(response_with_drift, beta=1.0, scale=0.1)
-
     # ====== 输出整合 ======
     time_ms = time_jitter[offset:] * 1000
     response = response[offset:]
     response_noisy = response_noisy[offset:]
-    response_realistic = response_realistic[offset:]
 
-    return time_ms, response, response_noisy, response_realistic
+    return time_ms, response, response_noisy
 
 
 if __name__ == "__main__":
@@ -286,7 +269,7 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils import plot
 
-    time, clean, noisy, realistic = get_tem_signal_realistic()
+    time, clean, noisy = get_tem_signal_realistic()
 
     print(len(time), len(clean), len(noisy))
 

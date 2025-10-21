@@ -51,9 +51,9 @@ class TEMDataset(Dataset):
         # 加载数据
         self.signal_data = np.load(file_path, allow_pickle=True)
         self.noisy_signal = np.array(
-            [item["response_with_noise"] for item in self.signal_data]
+            [item["noisy"] for item in self.signal_data]
         )
-        self.clean_signal = np.array([item["response"] for item in self.signal_data])
+        self.clean_signal = np.array([item["clean"] for item in self.signal_data])
 
     def __len__(self):
         return len(self.signal_data)
