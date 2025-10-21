@@ -116,7 +116,7 @@ class TEMDnet(nn.Module):
         )
 
     def forward(
-        self, x: torch.Tensor, __=None, time: torch.Tensor = None
+        self, x: torch.Tensor, __=None
     ) -> torch.Tensor:
 
         x_length = x.shape[-1]

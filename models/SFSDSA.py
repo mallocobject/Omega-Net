@@ -41,13 +41,8 @@ class SFSDSA(nn.Module):
         )
 
     def forward(
-        self, x: torch.Tensor, _=None, time: torch.Tensor = None
+        self, x: torch.Tensor
     ) -> torch.Tensor:
-
-        # x: (B, L)
-        # if self.stddev:
-        #     noise = torch.randn_like(x) * self.stddev
-        #     x = x + noise
 
         encoded = self.encoder(x)  # (B, out_features)
         out = self.decoder(encoded)  # (B, in_features)

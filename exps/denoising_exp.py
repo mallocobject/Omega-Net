@@ -22,7 +22,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import TEMDnet, SFSDSA, TEMSGnet, TEMDemucs
 from data import TEMDataset
 from utils import EarlyStopping
-from criterions import SFSDSALoss, TEMDnetLoss, TEMSGnetLoss, TEMDemucsLoss
+from criterions import SFSDSALoss, TEMDnetLoss, TEMDemucsLoss
 
 
 class DenoisingExperiment:
@@ -40,9 +40,7 @@ class DenoisingExperiment:
         if self.args.model == "temdnet":
             model = TEMDnet(stddev=self.args.stddev)
         elif self.args.model == "sfsdsa":
-            model = SFSDSA(stddev=self.args.stddev)
-        elif self.args.model == "temsgnet":
-            model = TEMSGnet(timesteps=self.args.time_steps, stddev=self.args.stddev)
+            model = SFSDSA()
         elif self.args.model == "temdemucs":
             model = TEMDemucs()
         else:
@@ -65,8 +63,6 @@ class DenoisingExperiment:
     def _select_criterion(self):
         if self.args.model == "temdnet":
             criterion = TEMDnetLoss()
-        elif self.args.model == "temsgnet":
-            criterion = TEMSGnetLoss()
         elif self.args.model == "sfsdsa":
             criterion = SFSDSALoss()
         elif self.args.model == "temdemucs":
@@ -146,15 +142,8 @@ class DenoisingExperiment:
                     self.accelerator.device
                 )
 
-                time_emb = torch.randint(
-                    0,
-                    self.args.time_steps,
-                    (x.size(0),),
-                    device=self.accelerator.device,
-                )
-
                 optimizer.zero_grad()
-                outputs = model(x, label, time_emb)
+                outputs = model(x)
                 loss = train_criterion(x.detach(), outputs, label)
                 self.accelerator.backward(loss)
                 optimizer.step()
@@ -183,15 +172,9 @@ class DenoisingExperiment:
                 x, label = x.to(self.accelerator.device), label.to(
                     self.accelerator.device
                 )
-                time_emb = torch.randint(
-                    0,
-                    self.args.time_steps,
-                    (x.size(0),),
-                    device=self.accelerator.device,
-                )
 
-                outputs = model(x, label, time_emb)
-                if self.args.model == "temdemucs":
+                outputs = model(x)
+                if self.args.model in ["temdemucs", "sfsdsa"]:
                     loss = F.mse_loss(outputs, label)
                 elif self.args.model == "temdnet":
                     loss = F.mse_loss(x - outputs, label)
@@ -233,7 +216,7 @@ class DenoisingExperiment:
                 )
                     
                 outputs = model(x)
-                if self.args.model == "temdemucs":
+                if self.args.model in ["temdemucs", "sfsdsa"]:
                     loss = F.mse_loss(outputs, label)
                 elif self.args.model == "temdnet":
                     loss = F.mse_loss(x - outputs, label)

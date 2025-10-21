@@ -68,7 +68,7 @@ ori_sig = np.array([item["noisy"] for item in signal_data])[vis_idx]
 
 with torch.no_grad():
 
-    if model_name == "temdemucs":
+    if model_name in ["temdemucs", "sfsdsa"]:
         denoised_signal = model(vis_x)
     elif model_name == "temdnet":
         estimate_noise = model(vis_x)
