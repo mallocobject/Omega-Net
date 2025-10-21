@@ -28,7 +28,6 @@ class TEMDataset(Dataset):
         self,
         data_dir: str,
         split: str = "train",
-        stats_file: str = "norm_stats.npy",
     ):
         """
         Args:
@@ -56,28 +55,6 @@ class TEMDataset(Dataset):
         )
         self.clean_signal = np.array([item["response"] for item in self.signal_data])
 
-        # 对数归一化
-        self.noisy_signal = np.sign(self.noisy_signal) * np.log(
-            np.abs(self.noisy_signal)
-        )
-        self.clean_signal = np.sign(self.clean_signal) * np.log(
-            np.abs(self.clean_signal)
-        )
-
-        if split == "train":
-            min = self.noisy_signal.min()
-            max = self.noisy_signal.max()
-            np.save(os.path.join(data_dir, stats_file), np.array([min, max]))
-        elif split in ["test", "valid"]:
-            min = np.load(os.path.join(data_dir, stats_file))[0]
-            max = np.load(os.path.join(data_dir, stats_file))[1]
-
-        else:
-            raise ValueError("split must be 'train' or 'valid' or 'test'")
-
-        self.noisy_signal = (self.noisy_signal - min) / (max - min)
-        self.clean_signal = (self.clean_signal - min) / (max - min)
-
     def __len__(self):
         return len(self.signal_data)
 
@@ -85,32 +62,6 @@ class TEMDataset(Dataset):
         noisy_signal = torch.tensor(self.noisy_signal[idx], dtype=torch.float32)
         clean_signal = torch.tensor(self.clean_signal[idx], dtype=torch.float32)
         return noisy_signal, clean_signal
-
-    @staticmethod
-    def denormalize(
-        signal: torch.Tensor,
-        data_dir: str = "data/raw_data",
-        stats_file="norm_stats.npy",
-    ) -> torch.Tensor:
-        """
-        反归一化
-        Args:
-            signal: 归一化后的信号
-            data_dir: 数据目录
-        Returns:
-            反归一化后的信号
-        """
-        import numpy as np
-        import torch, os
-
-        min_, max_ = np.load(os.path.join(data_dir, stats_file))
-        # 转为 tensor 并与输入对齐设备与类型
-        min_ = torch.tensor(min_, device=signal.device, dtype=signal.dtype)
-        max_ = torch.tensor(max_, device=signal.device, dtype=signal.dtype)
-
-        signal = signal * (max_ - min_) + min_
-        signal = torch.sign(signal) * torch.exp(torch.abs(signal))
-        return signal
 
 
 # class TEMDDateset(Dataset):

@@ -20,10 +20,6 @@ NPY_DIR = "data/raw_data"
 BATCH_SIZE = 20
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-dataset = TEMDataset(
-    NPY_DIR,
-    split="train",
-)
 
 dataset = TEMDataset(
     NPY_DIR,
@@ -82,9 +78,9 @@ with torch.no_grad():
         denoised_signal = estimate_noise  # TEMSGnet 直接输出去噪结果
 
     # 转回 CPU 并反标准化
-    noisy_signal = TEMDataset.denormalize(vis_x[0]).cpu().numpy()
-    clean_signal = TEMDataset.denormalize(vis_label[0]).cpu().numpy()
-    denoised_signal = TEMDataset.denormalize(denoised_signal[0]).cpu().numpy()
+    noisy_signal = vis_x[0].cpu().numpy()
+    clean_signal = vis_label[0].cpu().numpy()
+    denoised_signal = denoised_signal[0].cpu().numpy()
 
     t = np.linspace(0, 400, 400)  # 时间轴（ms）
 

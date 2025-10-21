@@ -18,6 +18,20 @@ def add_noise_snr(signal: np.ndarray, snr_db: float):
     return signal + noise
 
 
+def add_colored_noise(signal, beta=1.0, scale=0.05):
+    """添加 1/f^beta 噪声,beta=1为粉噪声"""
+    N = len(signal)
+    freqs = np.fft.rfftfreq(N)
+    freqs[0] = 1e-6
+    amplitude = 1 / (freqs ** (beta / 2))
+    amplitude = amplitude / np.sqrt(np.mean(amplitude**2))  # RMS归一化
+
+    noise_fft = np.random.randn(len(freqs)) + 1j * np.random.randn(len(freqs))
+    noise = np.fft.irfft(noise_fft * amplitude)
+    noise = noise / np.max(np.abs(noise)) * np.std(signal) * scale
+    return signal + noise
+
+
 # https://ieeexplore.ieee.org/document/9698089
 def get_simple_tem_signal(
     noise_stddev: float = 500,
@@ -90,23 +104,24 @@ def get_tem_signal(
     使用empymod库模拟更接近真实的1D地层的瞬变电磁响应
     """
     # 地层参数（基于常见地质条件），加上随机扰动
-    thickness = [
-        10.0,  # 覆盖层厚度：10米（如沙土）
-        50.0,  # 导电层厚度：50米（如沉积层）
-        100.0,  # 基底层厚度：100米（如花岗岩）
-    ]
     resistivity = [
-        1e12,  # 空气层（电阻率极高）
-        100.0 * np.random.uniform(0.95, 1.05),  # 覆盖层（100 Ω·m，增加随机变化）
-        10.0 * np.random.uniform(0.95, 1.05),  # 导电层（10 Ω·m，增加随机变化）
-        500.0 * np.random.uniform(0.95, 1.05),  # 基底层（500 Ω·m，增加随机变化）
-        200.0 * np.random.uniform(0.95, 1.05),  # 额外层（200 Ω·m，增加随机变化）
+        1e12,
+        100.0 * np.random.uniform(0.8, 1.2),
+        10.0 * np.random.uniform(0.8, 1.2),
+        500.0 * np.random.uniform(0.8, 1.2),
+        200.0 * np.random.uniform(0.8, 1.2),
     ]
+    thickness = [
+        10.0 * np.random.uniform(0.9, 1.1),
+        50.0 * np.random.uniform(0.9, 1.1),
+        100.0 * np.random.uniform(0.9, 1.1),
+    ]
+
     depth = [0.0] + list(np.cumsum(thickness))  # 地层深度
 
     # 回线源（矩形回线）
-    coil_length = 250.0
-    coil_width = 250.0
+    coil_length = 30.0
+    coil_width = 25.0
     src = [
         -coil_length / 2,  # 回线左下角 x 坐标
         -coil_width / 2,  # 回线左下角 y 坐标
@@ -126,8 +141,8 @@ def get_tem_signal(
     ]
 
     # 时间采样
-    offset = 10
-    time = np.logspace(-5, -1, 400)  # 10微秒到100毫秒
+    offset = 10  # 偏移量
+    time = np.linspace(1e-20, 0.05, 400 + offset)
 
     # 计算源强度（假设电流为10安，回线面积为 300m * 250m）
     strength = 10.0 * coil_length * coil_width  # 10安 × 回线面积
@@ -147,11 +162,8 @@ def get_tem_signal(
         htarg={"dlf": "key_201_2012"},  # Hankel变换滤波器，确保数值稳定性
     )
 
-    response = response[offset:]
-    time = time[offset:]
-
-    response = response * 1e9  # 转换为 nT
-    response = response - 2000  # 增加直流
+    response = np.abs(response) * 1e9  # 转换为 nT
+    # response = response - 2000  # 增加直流
 
     response_with_noise = add_noise_stddev(response, noise_stddev)
 
@@ -169,7 +181,101 @@ def get_tem_signal(
     # 将脉冲噪声加入到TEM响应信号中
     response_with_noise_and_impulse = response_with_noise + pulse_noise
 
-    return response, response_with_noise, response_with_noise_and_impulse
+    time = time * 1000  # 转换为毫秒
+
+    time = time[offset:]  # 去除前offset个采样点
+    response = response[offset:]
+    response_with_noise = response_with_noise[offset:]
+    response_with_noise_and_impulse = response_with_noise_and_impulse[offset:]
+
+    return (
+        time,
+        response,
+        response_with_noise,
+        response_with_noise_and_impulse,
+    )
+
+
+def get_tem_signal_realistic(
+    noise_stddev: float = 500,
+    min_impulse: float = -500,
+    max_impulse: float = 1000,
+    num_impulse: int = 5,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    生成“更真实”的一维瞬变电磁(TEM)信号
+    模拟地层扰动、采样抖动、1/f噪声、慢漂移和脉冲干扰
+    """
+
+    # ====== 地层参数（带随机扰动） ======
+    thickness = [
+        10.0 * np.random.uniform(0.9, 1.1),
+        50.0 * np.random.uniform(0.9, 1.1),
+        100.0 * np.random.uniform(0.9, 1.1),
+    ]
+    resistivity = [
+        1e12,
+        100.0 * np.random.uniform(0.8, 1.2),
+        10.0 * np.random.uniform(0.8, 1.2),
+        500.0 * np.random.uniform(0.8, 1.2),
+        200.0 * np.random.uniform(0.8, 1.2),
+    ]
+    depth = [0.0] + list(np.cumsum(thickness))
+
+    # ====== 源与接收参数 ======
+    coil_length, coil_width = 30.0, 25.0
+    src = [-coil_length / 2, -coil_width / 2, 0.0, coil_length / 2, coil_width / 2, 0.0]
+    rec = [0.0, 0.0, 0.1, 0.0, 0.0]  # 点接收器略高于地面
+    strength = 10.0 * coil_length * coil_width  # 电流×回线面积
+
+    # ====== 时间采样（带采样抖动） ======
+    offset = 10
+    time = np.linspace(1e-20, 0.05, 400 + offset)
+    time_jitter = time * (1 + np.random.normal(0, 0.002, size=time.shape))
+
+    # ====== TEM响应计算 ======
+    response = empymod.loop(
+        src=src,
+        rec=rec,
+        depth=depth,
+        res=resistivity,
+        freqtime=time_jitter,
+        signal=-1,  # 关断信号
+        mrec=False,
+        recpts=1,
+        strength=strength,
+        verb=0,
+        htarg={"dlf": "key_201_2012"},
+    )
+
+    response = np.abs(response) * 1e9  # nT
+
+    # ====== 加噪声 ======
+    response_noisy = add_noise_stddev(response, noise_stddev)
+
+    # ====== 加入脉冲噪声 ======
+    pulse_noise = np.zeros_like(response)
+    pulse_times = np.random.choice(len(time), size=num_impulse, replace=False)
+    pulse_magnitude = np.random.uniform(min_impulse, max_impulse, size=num_impulse)
+    for pt, mag in zip(pulse_times, pulse_magnitude):
+        pulse_noise[pt] = mag
+
+    response_with_impulse = response_noisy + pulse_noise
+
+    # ====== 加入慢漂移 ======
+    drift = np.cumsum(np.random.randn(len(time))) * np.std(response) * 1e-3
+    response_with_drift = response_with_impulse + drift
+
+    # ====== 加入 1/f 噪声 ======
+    response_realistic = add_colored_noise(response_with_drift, beta=1.0, scale=0.1)
+
+    # ====== 输出整合 ======
+    time_ms = time_jitter[offset:] * 1000
+    response = response[offset:]
+    response_noisy = response_noisy[offset:]
+    response_realistic = response_realistic[offset:]
+
+    return time_ms, response, response_noisy, response_realistic
 
 
 if __name__ == "__main__":
@@ -180,11 +286,14 @@ if __name__ == "__main__":
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from utils import plot
 
-    time, response, response_with_noise = get_simple_tem_signal()
+    time, clean, noisy, realistic = get_tem_signal_realistic()
+
+    print(len(time), len(clean), len(noisy))
+
     plot(
         time,
-        response,
-        response_with_noise,
+        clean,
+        noisy,
         x_axis="time (ms)",
         y_axis="B (nT)",
     )

@@ -4,6 +4,7 @@ from .tem_generator import (
     get_simple_tem_signal_v2,
     add_noise_snr,
     add_noise_stddev,
+    get_tem_signal_realistic,
 )
 from .early_stopping import EarlyStopping
 
@@ -14,6 +15,7 @@ __all__ = [
     "default",
     "get_simple_tem_signal",
     "get_simple_tem_signal_v2",
+    "get_tem_signal_realistic",
     "add_noise_snr",
     "add_noise_stddev",
     "plot",
