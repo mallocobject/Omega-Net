@@ -28,8 +28,7 @@ dataset = TEMDataset(
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
-model_name = "temdemucs"  # 可选 "temdnet", "sfsdsa", "temsgnet", "temdemucs"
-
+model_name = "temdnet"  # 可选 "temdnet", "sfsdsa", "temsgnet", "temdemucs"
 if model_name == "temdnet":
     model = TEMDnet(stddev=0.05).to(DEVICE)
 elif model_name == "sfsdsa":
@@ -69,12 +68,13 @@ ori_sig = np.array([item["noisy"] for item in signal_data])[vis_idx]
 
 with torch.no_grad():
 
-    if model_name != "temsgnet":
+    if model_name == "temdemucs":
+        denoised_signal = model(vis_x)
+    elif model_name == "temdnet":
         estimate_noise = model(vis_x)
         denoised_signal = vis_x - estimate_noise
     else:
-        estimate_noise = model.denoise_from_noisy(vis_x, vis_x, 100)
-        denoised_signal = estimate_noise  # TEMSGnet 直接输出去噪结果
+        raise NotImplementedError
 
     # 转回 CPU 并反标准化
     noisy_signal = vis_x[0].cpu().numpy()

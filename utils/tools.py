@@ -119,25 +119,28 @@ def plot(
 ):
     plt.figure(figsize=(12, 6))
 
-    # sig[0]: clean signal
-    # sig[1]: noisy signal
-    # sig[2]: denoised signal
     labels = ["Clean Signal", "Noisy Signal", "Denoised Signal"]
-    styles = ["g-", "r-", "b-."]  # 不同线型（实线、虚线、点划线）
-    linewidths = [2, 1.5, 2]
+    styles = ["g-", "r-", "b-."]
+    linewidths = [1.2, 1.0, 1.2]  # 线条更细
 
     for i in range(len(sig)):
         plt.plot(
-            t, sig[i], styles[i], linewidth=linewidths[i], label=labels[i], alpha=0.9
+            t,
+            sig[i],
+            styles[i],
+            linewidth=linewidths[i],
+            label=labels[i],
+            alpha=0.85,
         )
 
     plt.xlabel(x_axis, fontsize=12)
     plt.ylabel(y_axis, fontsize=12)
     plt.title(title, fontsize=14)
-    plt.legend(fontsize=11, loc="best", frameon=False)
-    plt.grid(alpha=0.3, linestyle="--")
+    plt.legend(fontsize=10, loc="best", frameon=False)
+    plt.grid(alpha=0.25, linestyle="--")
     plt.tight_layout()
     plt.show()
+
 
 def log_plot(
     t,
