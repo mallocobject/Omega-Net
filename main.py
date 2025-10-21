@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 from data import TEMDataset
-from models import TEMDnet, SFSDSA, TEMSGnet
+from models import TEMDnet, SFSDSA, TEMSGnet, TEMDemucs
 from utils import plot
 
 NPY_DIR = "data/raw_data"
@@ -28,13 +28,15 @@ dataset = TEMDataset(
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
 
-model_name = "temdnet"  # 可选 "temdnet", "sfsdsa", "temsgnet"
+model_name = "temdemucs"  # 可选 "temdnet", "sfsdsa", "temsgnet", "temdemucs"
 if model_name == "temdnet":
     model = TEMDnet(stddev=0.05).to(DEVICE)
 elif model_name == "sfsdsa":
     model = SFSDSA().to(DEVICE)
 elif model_name == "temsgnet":
     model = TEMSGnet().to(DEVICE)
+elif model_name == "temdemucs":
+    model = TEMDemucs().to(DEVICE)
 
 # ======================
 # 2️⃣ 加载模型参数
@@ -87,4 +89,3 @@ with torch.no_grad():
         y_axis="Amp (mV)",
         title=f"{model_name} Denoising Result",
     )
-    

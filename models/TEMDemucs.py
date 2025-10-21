@@ -38,7 +38,7 @@ class TEMDemucs(nn.Module):
         self,
         chin=1,
         chout=1,
-        hidden=48,
+        hidden=32,
         depth=4,
         kernel_size=3,
         stride=2,

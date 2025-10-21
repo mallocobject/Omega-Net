@@ -134,7 +134,8 @@ class TEMDnet(nn.Module):
 
 if __name__ == "__main__":
     x = torch.randn(100, 400)  # (B, L)
-    model = TEMDnet(in_channels=1)
+    model = TEMDnet(stddev=0.01)
+    print(model)
     output = model(x)
     print(f"Input shape: {x.shape}")
     print(f"Output shape: {output.shape}")
