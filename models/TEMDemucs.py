@@ -96,7 +96,7 @@ class TEMDemucs(nn.Module):
             chout = hidden
             hidden = min(int(hidden * growth), max_hidden)
 
-        self.lstm = BLSTM(chout, bid=not causal)
+        self.catch = BLSTM(chout, bid=not causal)
 
     def forward(self, x: torch.Tensor):
         if x.dim() == 2:
@@ -108,7 +108,7 @@ class TEMDemucs(nn.Module):
             x = encoder(x)
             skips.append(x)
         x = x.permute(2, 0, 1)  # (T, B, C)
-        x, _ = self.lstm(x)
+        x, _ = self.catch(x)
         x = x.permute(1, 2, 0)  # (B, C, T)
         for decoder in reversed(self.decoder):
             skip = skips.pop()
